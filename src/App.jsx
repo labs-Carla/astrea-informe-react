@@ -3,11 +3,21 @@ import { useCartaNatal } from './hooks/useCartaNatal'
 import Inicio from './components/Inicio'
 import Capitulos from './components/Capitulos'
 import VisionGeneral from './components/VisionGeneral'
-import BarraInferior from './components/BarraInferior'
 import ElementosDignidades from './components/ElementosDignidades'
+import PuntosAngulares from './components/PuntosAngulares'
+import Planetas from './components/Planetas'
+import PlanetaDetalle from './components/PlanetaDetalle'
+import BarraInferior from './components/BarraInferior'
+
 function App() {
   const { datos, cargando, error } = useCartaNatal()
   const [vista, setVista] = useState('inicio')
+  const [planetaSeleccionado, setPlanetaSeleccionado] = useState(null)
+
+  function irADetallePlaneta(nombre) {
+    setPlanetaSeleccionado(nombre)
+    setVista('planeta-detalle')
+  }
 
   let contenido
 
@@ -36,7 +46,24 @@ function App() {
           <VisionGeneral datos={datos} onVolver={() => setVista('capitulos')} />
         )}
         {vista === 'elementos' && (
-        <ElementosDignidades datos={datos} onVolver={() => setVista('capitulos')} />
+          <ElementosDignidades datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'puntos-angulares' && (
+          <PuntosAngulares datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'planetas' && (
+          <Planetas
+            datos={datos}
+            onSeleccionar={irADetallePlaneta}
+            onVolver={() => setVista('capitulos')}
+          />
+        )}
+        {vista === 'planeta-detalle' && (
+          <PlanetaDetalle
+            datos={datos}
+            nombrePlaneta={planetaSeleccionado}
+            onVolver={() => setVista('planetas')}
+          />
         )}
       </div>
     )
@@ -49,8 +76,6 @@ function App() {
         {!cargando && !error && vista !== 'inicio' && (
           <BarraInferior vistaActual={vista} onNavegar={setVista} />
         )}
-        
-        
       </div>
     </div>
   )
