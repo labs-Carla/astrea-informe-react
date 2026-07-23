@@ -8,6 +8,9 @@ import PuntosAngulares from './components/PuntosAngulares'
 import Planetas from './components/Planetas'
 import PlanetaDetalle from './components/PlanetaDetalle'
 import BarraInferior from './components/BarraInferior'
+import Casas from './components/Casas'
+import Aspectos from './components/Aspectos'
+import Sintesis from './components/Sintesis'
 
 function App() {
   const { datos, cargando, error } = useCartaNatal()
@@ -64,6 +67,15 @@ function App() {
             nombrePlaneta={planetaSeleccionado}
             onVolver={() => setVista('planetas')}
           />
+        )}
+        {vista === 'casas' && (
+        <Casas datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'aspectos' && (
+        <Aspectos datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'sintesis' && (
+        <Sintesis datos={datos} onVolver={() => setVista('capitulos')} />
         )}
       </div>
     )
