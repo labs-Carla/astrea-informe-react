@@ -10,6 +10,14 @@ import PlanetaDetalle from './components/PlanetaDetalle'
 import BarraInferior from './components/BarraInferior'
 import Casas from './components/Casas'
 import Aspectos from './components/Aspectos'
+import Vocacion from './components/Vocacion'
+import Dinero from './components/Dinero'
+import Amor from './components/Amor'
+import HeridaDon from './components/HeridaDon'
+import CieloHoy from './components/CieloHoy'
+import ProximosMeses from './components/ProximosMeses'
+import PlanAccion from './components/PlanAccion'
+import Brujula from './components/Brujula'
 import Sintesis from './components/Sintesis'
 
 function AppReporte() {
@@ -73,6 +81,30 @@ function AppReporte() {
         )}
         {vista === 'aspectos' && (
           <Aspectos datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'vocacion' && (
+          <Vocacion datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'dinero' && (
+          <Dinero datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'amor' && (
+          <Amor datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'herida-don' && (
+          <HeridaDon datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'cielo-hoy' && (
+          <CieloHoy datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'proximos-meses' && (
+          <ProximosMeses datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'plan-accion' && (
+          <PlanAccion datos={datos} onVolver={() => setVista('capitulos')} />
+        )}
+        {vista === 'brujula' && (
+          <Brujula datos={datos} onVolver={() => setVista('capitulos')} />
         )}
         {vista === 'sintesis' && (
           <Sintesis datos={datos} onVolver={() => setVista('capitulos')} />

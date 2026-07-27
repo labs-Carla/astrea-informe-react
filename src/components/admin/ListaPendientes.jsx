@@ -105,9 +105,14 @@ function ListaPendientes({ claveAdmin }) {
                   </div>
                   <div className="text-sm text-[#5C5346]">{carta.email}</div>
                   <div className="text-xs text-[#8B6F47]">
-                    {pestana === 'pendientes'
-                      ? `Nacimiento: ${carta.fecha_hora_local}`
-                      : `Enviado: ${carta.fecha_envio?.split('T')[0]}`}
+                    {pestana === 'pendientes' ? (
+                      <>
+                        Nacimiento: {carta.fecha_hora_local} · Solicitado:{' '}
+                        {carta.fecha_solicitud_compra ? carta.fecha_solicitud_compra.split('T')[0] : 'sin fecha'}
+                      </>
+                    ) : (
+                      `Enviado: ${carta.fecha_envio?.split('T')[0]}`
+                    )}
                   </div>
                 </div>
                 <span className="text-[#8B6F47]">›</span>
