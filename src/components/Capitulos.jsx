@@ -8,8 +8,16 @@ const CAPITULOS = [
   { id: 'puntos-angulares', numero: '03', titulo: 'Puntos angulares', icono: '△\uFE0E' },
   { id: 'planetas', numero: '04', titulo: 'Planetas', icono: '♂\uFE0E' },
   { id: 'casas', numero: '05', titulo: 'Casas', icono: '⌂\uFE0E' },
-  { id: 'aspectos', numero: '06', titulo: 'Aspectos', icono: '☍\uFE0E' },
-  { id: 'sintesis', numero: '07', titulo: 'Síntesis de tu carta', icono: '✳\uFE0E' },
+  { id: 'aspectos', numero: '06', titulo: 'Aspectos', icono: '⚹\uFE0E' },
+  { id: 'vocacion', numero: '07', titulo: 'Vocación y carrera', icono: '⚒\uFE0E' },
+  { id: 'dinero', numero: '08', titulo: 'Dinero y abundancia', icono: '⚕\uFE0E' },
+  { id: 'amor', numero: '09', titulo: 'Amor y relaciones', icono: '♡\uFE0E' },
+  { id: 'herida-don', numero: '10', titulo: 'Tu herida y tu don', icono: '⚷\uFE0E' },
+  { id: 'cielo-hoy', numero: '11', titulo: 'Tu cielo de hoy', icono: '☉\uFE0E' },
+  { id: 'proximos-meses', numero: '12', titulo: 'Los próximos meses', icono: '☾\uFE0E' },
+  { id: 'plan-accion', numero: '13', titulo: 'Tu plan de acción', icono: '✦\uFE0E' },
+  { id: 'brujula', numero: '14', titulo: 'Tu brújula personal', icono: '✳\uFE0E' },
+  { id: 'sintesis', numero: '15', titulo: 'Síntesis de tu carta', icono: '✵\uFE0E' },
 ]
   
   function Capitulos({ onSeleccionar }) {
