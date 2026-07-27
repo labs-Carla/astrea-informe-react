@@ -3,6 +3,21 @@ import DetalleCarta from './DetalleCarta'
 
 const API_BASE = 'https://astrea-api-production.up.railway.app/api/v1'
 
+function formatearFechaHora(isoString) {
+  if (!isoString) return 'sin fecha'
+  const fecha = new Date(isoString)
+  return fecha.toLocaleString('es-CO', {
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+    timeZone: 'America/Bogota',
+  })
+}
+
 /**
  * Lista de cartas, con toggle entre "Pendientes" (aun no aprobadas) y
  * "Enviadas" (ya aprobadas, con su link/token visible). Al seleccionar
@@ -104,14 +119,14 @@ function ListaPendientes({ claveAdmin }) {
                     {carta.nombre_reporte || '(sin nombre)'}
                   </div>
                   <div className="text-sm text-[#5C5346]">{carta.email}</div>
-                  <div className="text-xs text-[#8B6F47]">
+                  <div className="text-xs text-[#8B6F47] space-y-0.5">
                     {pestana === 'pendientes' ? (
                       <>
-                        Nacimiento: {carta.fecha_hora_local} · Solicitado:{' '}
-                        {carta.fecha_solicitud_compra ? carta.fecha_solicitud_compra.split('T')[0] : 'sin fecha'}
+                        <div>Nacimiento: {carta.fecha_hora_local}</div>
+                        <div>Solicitado: {formatearFechaHora(carta.fecha_solicitud_compra)}</div>
                       </>
                     ) : (
-                      `Enviado: ${carta.fecha_envio?.split('T')[0]}`
+                      <div>Enviado: {formatearFechaHora(carta.fecha_envio)}</div>
                     )}
                   </div>
                 </div>
