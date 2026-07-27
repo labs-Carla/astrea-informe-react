@@ -9,6 +9,7 @@ import AppReporte from './AppReporte'
  * useCartaNatal) solo se ejecuten cuando realmente corresponde.
  */
 function App() {
+  console.log(window.location.pathname)
   const esAdmin = window.location.pathname === '/admin'
   return esAdmin ? <PanelAdmin /> : <AppReporte />
 }
