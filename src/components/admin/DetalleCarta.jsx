@@ -61,6 +61,7 @@ function DetalleCarta({ claveAdmin, cartaId, onVolver }) {
   const [accionEnCurso, setAccionEnCurso] = useState(null)
   const [mensajeAccion, setMensajeAccion] = useState(null)
   const [linkAprobado, setLinkAprobado] = useState(null)
+  const [errorVistaPrevia, setErrorVistaPrevia] = useState(null)
 
   useEffect(() => {
     cargarDetalle()
@@ -127,6 +128,42 @@ function DetalleCarta({ claveAdmin, cartaId, onVolver }) {
     }
   }
 
+  /**
+   * Abre la vista previa HTML (solo admin) en una pestana nueva. El endpoint
+   * exige el header X-Admin-Secret, asi que no sirve un <a href> directo: se
+   * pide el HTML con fetch y se abre como blob. La pestana se abre antes del
+   * await para que el navegador no la bloquee como popup.
+   */
+  async function abrirVistaPrevia() {
+    setErrorVistaPrevia(null)
+    const pestana = window.open('', '_blank')
+    try {
+      const respuesta = await fetch(`${API_BASE}/admin/carta/${cartaId}/vista-previa`, {
+        headers: { 'X-Admin-Secret': claveAdmin },
+      })
+      if (!respuesta.ok) throw new Error(`No se pudo generar la vista previa (${respuesta.status}).`)
+      const html = await respuesta.text()
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
+      if (pestana) pestana.location.href = url
+      else window.location.href = url
+    } catch (err) {
+      if (pestana) pestana.close()
+      setErrorVistaPrevia(err.message)
+    }
+  }
+
+  const botonVistaPrevia = (
+    <div className="mb-6">
+      <button
+        onClick={abrirVistaPrevia}
+        className="w-full border border-[#2B2620] text-[#2B2620] rounded-lg py-2.5 text-sm font-medium hover:bg-[#EDE6D3]"
+      >
+        Ver vista previa (HTML) ↗
+      </button>
+      {errorVistaPrevia && <p className="text-red-700 text-sm mt-2">{errorVistaPrevia}</p>}
+    </div>
+  )
+
   if (cargando) return <div className="p-6 text-[#5C5346]">Cargando...</div>
   if (error) return <div className="p-6 text-red-700">{error}</div>
 
@@ -147,6 +184,8 @@ function DetalleCarta({ claveAdmin, cartaId, onVolver }) {
         </button>
 
         <h1 className="font-serif text-2xl text-[#2B2620] mb-6">Carta #{cartaId}</h1>
+
+        {botonVistaPrevia}
 
         <div className="bg-[#EDE6D3] rounded-lg p-5 mb-4">
           <p className="text-[#5C5346] mb-4">
@@ -194,6 +233,8 @@ function DetalleCarta({ claveAdmin, cartaId, onVolver }) {
       </button>
 
       <h1 className="font-serif text-2xl text-[#2B2620] mb-2">Carta #{cartaId}</h1>
+
+      {botonVistaPrevia}
 
       <div className="mb-4">
         <label className="block text-xs uppercase tracking-wide text-[#8B6F47] mb-1">
