@@ -155,6 +155,9 @@ function ListaPendientes({ claveAdmin }) {
                     {pestana !== 'enviadas' ? (
                       <>
                         <div>Nacimiento: {carta.fecha_hora_local}</div>
+                        {carta.ciudad && (
+                          <div>Lugar: {[carta.ciudad, carta.pais].filter(Boolean).join(', ')}</div>
+                        )}
                         <div>Solicitado: {formatearFechaHora(carta.fecha_solicitud_compra)}</div>
                       </>
                     ) : (
