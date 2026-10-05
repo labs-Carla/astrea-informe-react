@@ -10,6 +10,7 @@ function Inicio({ datos, onComenzar }) {
   const primerNombre = datos?.metadata?.nombre?.split(' ')[0] || ''
   const fechaNacimiento = datos?.metadata?.fecha_hora_local
   const edad = fechaNacimiento ? calcularEdad(fechaNacimiento) : null
+  const lugar = [datos?.metadata?.ciudad, datos?.metadata?.pais].filter(Boolean).join(', ')
 
   return (
     <div className="h-full flex flex-col px-6 pt-8 pb-6">
@@ -30,6 +31,11 @@ function Inicio({ datos, onComenzar }) {
           ? `Hace ${edad} años el cielo dibujó un mapa.`
           : 'El cielo dibujó un mapa el día de tu nacimiento.'}
       </p>
+      {lugar && (
+        <p className="text-xs uppercase tracking-[0.2em] text-[#8B6F47] mb-0.5 shrink-0">
+          ✦ {lugar}
+        </p>
+      )}
       <p className="font-serif italic text-sm text-[#5C5346] mb-4 shrink-0">
         Hoy comienza el viaje para entenderlo.
       </p>

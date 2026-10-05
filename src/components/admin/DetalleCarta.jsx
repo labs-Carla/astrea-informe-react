@@ -233,6 +233,11 @@ function DetalleCarta({ claveAdmin, cartaId, onVolver }) {
       </button>
 
       <h1 className="font-serif text-2xl text-[#2B2620] mb-2">Carta #{cartaId}</h1>
+      {detalle.ciudad && (
+        <p className="text-sm text-[#5C5346] mb-2">
+          Lugar de nacimiento: {[detalle.ciudad, detalle.pais].filter(Boolean).join(', ')}
+        </p>
+      )}
 
       {botonVistaPrevia}
 
