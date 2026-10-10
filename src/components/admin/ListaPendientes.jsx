@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import DetalleCarta from './DetalleCarta'
+import ListaPedidos from './ListaPedidos'
 
 const API_BASE = 'https://astrea-api-production.up.railway.app/api/v1'
 
@@ -22,6 +23,7 @@ const PESTANAS = [
   { id: 'esperando-pago', etiqueta: 'Esperando pago', vacia: 'No hay órdenes esperando pago.' },
   { id: 'pendientes', etiqueta: 'Pendientes', vacia: 'No hay cartas pendientes.' },
   { id: 'enviadas', etiqueta: 'Enviadas', vacia: 'Aún no hay cartas enviadas.' },
+  { id: 'otros-reportes', etiqueta: 'Otros reportes', vacia: '' },
 ]
 
 /**
@@ -41,7 +43,7 @@ function ListaPendientes({ claveAdmin }) {
   const [confirmando, setConfirmando] = useState(null)
 
   useEffect(() => {
-    cargarCartas()
+    if (pestana !== 'otros-reportes') cargarCartas()
   }, [pestana])
 
   async function cargarCartas() {
@@ -148,6 +150,10 @@ function ListaPendientes({ claveAdmin }) {
         ))}
       </div>
 
+      {pestana === 'otros-reportes' ? (
+        <ListaPedidos claveAdmin={claveAdmin} />
+      ) : (
+      <>
       {pestana === 'esperando-pago' && (
         <p className="text-sm text-[#5C5346] mb-4">
           Personas que ya llenaron sus datos y fueron enviadas a Hotmart. Cuando veas la venta en
@@ -221,6 +227,8 @@ function ListaPendientes({ claveAdmin }) {
             </li>
           ))}
         </ul>
+      )}
+      </>
       )}
     </div>
   )
