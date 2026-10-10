@@ -33,6 +33,7 @@ const PESTANAS = [
  */
 function ListaPendientes({ claveAdmin }) {
   const [pestana, setPestana] = useState('pendientes')
+  const [reembolsando, setReembolsando] = useState(null)
   const [cartas, setCartas] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
@@ -61,6 +62,33 @@ function ListaPendientes({ claveAdmin }) {
       setError(err.message)
     } finally {
       setCargando(false)
+    }
+  }
+
+  async function registrarReembolso(carta) {
+    const ok = window.confirm(
+      `¿Registrar el reembolso de ${carta.nombre_reporte || carta.email}?\n` +
+        `Hazlo solo si ya se reembolsó en Hotmart. El enlace del informe sigue funcionando; ` +
+        `en Astrea.ai la compra deja de dar sus 5 preguntas.`
+    )
+    if (!ok) return
+
+    setReembolsando(carta.id)
+    setError(null)
+    try {
+      const respuesta = await fetch(`${API_BASE}/admin/reembolsar/${carta.id}`, {
+        method: 'POST',
+        headers: { 'X-Admin-Secret': claveAdmin },
+      })
+      if (!respuesta.ok) throw new Error('No se pudo registrar el reembolso.')
+      const ahora = new Date().toISOString()
+      setCartas((actuales) => actuales.map((c) => (
+        c.id === carta.id ? { ...c, reembolsado: true, fecha_reembolso: c.fecha_reembolso || ahora } : c
+      )))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setReembolsando(null)
     }
   }
 
@@ -161,12 +189,26 @@ function ListaPendientes({ claveAdmin }) {
                         <div>Solicitado: {formatearFechaHora(carta.fecha_solicitud_compra)}</div>
                       </>
                     ) : (
-                      <div>Enviado: {formatearFechaHora(carta.fecha_envio)}</div>
+                      <>
+                        <div>Enviado: {formatearFechaHora(carta.fecha_envio)}</div>
+                        {carta.reembolsado && (
+                          <div className="text-[#8B3A3A]">Reembolsado: {formatearFechaHora(carta.fecha_reembolso)}</div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
                 <span className="text-[#8B6F47]">›</span>
               </button>
+              {pestana === 'enviadas' && !carta.reembolsado && (
+                <button
+                  onClick={() => registrarReembolso(carta)}
+                  disabled={reembolsando === carta.id}
+                  className="shrink-0 border border-[#8B3A3A] text-[#8B3A3A] rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50"
+                >
+                  {reembolsando === carta.id ? 'Registrando...' : 'Registrar reembolso'}
+                </button>
+              )}
               {pestana === 'esperando-pago' && (
                 <button
                   onClick={() => confirmarPago(carta)}
