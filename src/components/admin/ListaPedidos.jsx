@@ -45,7 +45,7 @@ function DatosExtra({ extra }) {
  * (amor, vocación, dinero, patrones, revolución solar, compatibilidad).
  * Se preparan y envían a mano por correo; aquí se confirma el pago (cruzando
  * la venta de Hotmart por astrea-pedido-<id>), se marca el envío y se
- * registra un reembolso. Marcar enviado habilita las 5 preguntas en Astrea.ai.
+ * registra un reembolso.
  */
 function ListaPedidos({ claveAdmin }) {
   const [pedidos, setPedidos] = useState(null)
@@ -144,7 +144,7 @@ function ListaPedidos({ claveAdmin }) {
                 {p.estado === 'confirmado' && (
                   <button
                     disabled={ocupado}
-                    onClick={() => accion(p, 'marcar-enviado', `¿Ya enviaste ${p.producto_nombre} a ${p.email}?\nAl marcarlo, se habilitan sus 5 preguntas en Astrea.ai.`)}
+                    onClick={() => accion(p, 'marcar-enviado', `¿Ya enviaste ${p.producto_nombre} a ${p.email}?`)}
                     className="bg-[#2B2620] text-[#F7F3E9] rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50"
                   >
                     Marcar enviado
