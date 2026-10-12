@@ -123,6 +123,21 @@ export function BotonCopiar({ texto, etiqueta = 'Copiar' }) {
   )
 }
 
+/** Un paso del recorrido de una lectura (ficha lateral). */
+export function Paso({ hecho, actual, etiqueta, ultimo }) {
+  return (
+    <li className="flex flex-1 items-center gap-2">
+      <span className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] ring-1 ${
+        hecho ? 'bg-salvia text-papel ring-salvia' : actual ? 'bg-papel text-oro ring-oro' : 'bg-papel text-tinta-tenue ring-linea-fuerte'
+      }`}>
+        {hecho ? <Icono nombre="check" className="size-3.5" /> : <span className="size-1.5 rounded-full bg-current" />}
+      </span>
+      <span className={`whitespace-nowrap text-xs ${hecho || actual ? 'text-tinta' : 'text-tinta-tenue'}`}>{etiqueta}</span>
+      {!ultimo && <span className={`h-px min-w-3 flex-1 ${hecho ? 'bg-salvia/50' : 'bg-linea'}`} />}
+    </li>
+  )
+}
+
 /* ───────────── Avisos (toasts) ───────────── */
 
 export function ProveedorAvisos({ children }) {

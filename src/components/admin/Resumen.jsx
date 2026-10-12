@@ -44,12 +44,20 @@ function Recorrido({ etapas }) {
   )
 }
 
+/** Qué toca hacer con un pedido pagado: los temáticos siguen el recorrido generar → revisar → enviar. */
+function tareaPedido(p) {
+  if (!p.automatico) return 'Preparar y enviar'
+  if (['generado', 'editado'].includes(p.reporte_estado)) return 'Revisar y aprobar'
+  if (p.reporte_estado === 'aprobado') return 'Enviar PDF'
+  return 'Generar reporte'
+}
+
 /**
  * Página de inicio: indicadores de lo que pide acción, la cola de trabajo
  * ordenada por antigüedad, el recorrido de las lecturas y la actividad
  * reciente (reconstruida con las fechas que ya devuelven las listas).
  */
-function Resumen({ datos, ahora, cargando, irA, abrirCarta }) {
+function Resumen({ datos, ahora, cargando, irA, abrirCarta, abrirPedido }) {
   const { esperando = [], pendientes = [], aprobadas = [], pedidos = [] } = datos
 
   const resumen = useMemo(() => {
@@ -69,8 +77,8 @@ function Resumen({ datos, ahora, cargando, irA, abrirCarta }) {
         desde: c.fecha_envio, abrir: () => abrirCarta(c.id), producto: 'Carta natal' })),
       ...esperando.map((c) => ({ clave: `p${c.id}`, tipo: 'Confirmar pago', nombre: c.nombre_reporte, email: c.email,
         desde: c.fecha_solicitud_compra, abrir: () => irA('esperando-pago'), producto: 'Carta natal' })),
-      ...pedidosEnvio.map((p) => ({ clave: `pe${p.id}`, tipo: 'Preparar y enviar', nombre: p.nombre, email: p.email,
-        desde: p.fecha_confirmacion_pago, abrir: () => irA('pedidos'), producto: p.producto_nombre })),
+      ...pedidosEnvio.map((p) => ({ clave: `pe${p.id}`, tipo: tareaPedido(p), nombre: p.nombre, email: p.email,
+        desde: p.fecha_confirmacion_pago, abrir: p.automatico ? () => abrirPedido(p.id) : () => irA('pedidos'), producto: p.producto_nombre })),
       ...pedidosPago.map((p) => ({ clave: `pp${p.id}`, tipo: 'Confirmar pago', nombre: p.nombre, email: p.email,
         desde: p.fecha_solicitud_compra, abrir: () => irA('pedidos'), producto: p.producto_nombre })),
     ].sort((a, b) => new Date(a.desde || 0) - new Date(b.desde || 0))
@@ -92,7 +100,7 @@ function Resumen({ datos, ahora, cargando, irA, abrirCarta }) {
     ].filter((e) => e && e.fecha).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 10)
 
     return { sinPdf, conPdf, pedidosPago, pedidosEnvio, entregadasMes, reembolsos, cola, actividad }
-  }, [esperando, pendientes, aprobadas, pedidos, abrirCarta, irA, ahora])
+  }, [esperando, pendientes, aprobadas, pedidos, abrirCarta, abrirPedido, irA, ahora])
 
   const demoradas = resumen.cola.filter((t) => horasDesde(t.desde) > HORAS_DEMORA).length
 
@@ -143,7 +151,7 @@ function Resumen({ datos, ahora, cargando, irA, abrirCarta }) {
                         <div className="truncate text-sm font-medium text-tinta">{t.nombre || t.email}</div>
                         <div className="truncate text-xs text-tinta-tenue">{t.producto} · {t.email}</div>
                       </div>
-                      <Insignia tono={t.tipo === 'Confirmar pago' ? 'ambar' : t.tipo === 'Enviar PDF' ? 'azul' : t.tipo === 'Preparar y enviar' ? 'verde' : 'oro'}>{t.tipo}</Insignia>
+                      <Insignia tono={t.tipo === 'Confirmar pago' ? 'ambar' : t.tipo === 'Enviar PDF' ? 'azul' : ['Preparar y enviar', 'Generar reporte'].includes(t.tipo) ? 'verde' : 'oro'}>{t.tipo}</Insignia>
                       <span className={`hidden w-24 text-right text-xs sm:block ${demorada ? 'font-medium text-ambar' : 'text-tinta-tenue'}`}>{haceCuanto(t.desde)}</span>
                       <Icono nombre="flecha" className="size-4 text-tinta-tenue" />
                     </button>

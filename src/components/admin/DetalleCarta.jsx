@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { URL_LECTURA } from './api'
 import { EstadoPdf } from './TablaCartas'
-import { Boton, BotonCopiar, Esqueleto, Icono, Insignia } from './ui'
+import { Boton, BotonCopiar, Esqueleto, Icono, Insignia, Paso } from './ui'
 import { useAviso, useConfirmar } from './contextos'
 import { fechaHora, lugar } from './formato'
 
@@ -37,20 +37,6 @@ function estadoBloque(detalle, id) {
   if (!valor) return 'falta'
   if (valor._validation_error) return 'error'
   return 'listo'
-}
-
-function Paso({ hecho, actual, etiqueta, ultimo }) {
-  return (
-    <li className="flex flex-1 items-center gap-2">
-      <span className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] ring-1 ${
-        hecho ? 'bg-salvia text-papel ring-salvia' : actual ? 'bg-papel text-oro ring-oro' : 'bg-papel text-tinta-tenue ring-linea-fuerte'
-      }`}>
-        {hecho ? <Icono nombre="check" className="size-3.5" /> : <span className="size-1.5 rounded-full bg-current" />}
-      </span>
-      <span className={`whitespace-nowrap text-xs ${hecho || actual ? 'text-tinta' : 'text-tinta-tenue'}`}>{etiqueta}</span>
-      {!ultimo && <span className={`h-px min-w-3 flex-1 ${hecho ? 'bg-salvia/50' : 'bg-linea'}`} />}
-    </li>
-  )
 }
 
 /** Sol, Luna y Ascendente del cálculo (si vienen), para ubicar la carta de un vistazo. */
