@@ -168,9 +168,8 @@ function Escritorio({ clave, onSalir }) {
           accion: 'Registrar reembolso', variante: 'peligro', exito: 'Reembolso registrado.',
         },
       }[accion]
-      if (await confirmar(textos)) {
-        await ejecutar(`pedido:${pedido.id}:${accion}`, () => api.post(`/admin/pedidos/${pedido.id}/${accion}`), textos.exito)
-      }
+      if (!(await confirmar(textos))) return false
+      return Boolean(await ejecutar(`pedido:${pedido.id}:${accion}`, () => api.post(`/admin/pedidos/${pedido.id}/${accion}`), textos.exito))
     },
   }
 
@@ -280,7 +279,7 @@ function Escritorio({ clave, onSalir }) {
       </div>
 
       {pedidoAbierto && (
-        <DetallePedido api={api} pedidoId={pedidoAbierto} onCerrar={() => setPedidoAbierto(null)} onCambio={cargar} />
+        <DetallePedido api={api} pedidoId={pedidoAbierto} onCerrar={() => setPedidoAbierto(null)} onCambio={cargar} acciones={acciones} />
       )}
 
       {cartaAbierta && (

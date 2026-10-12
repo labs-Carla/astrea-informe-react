@@ -9,7 +9,20 @@ import { ESTADOS_REPORTE, fechaHora, lugar, nacimiento } from './formato'
  * pasos finales separados: «Aprobar reporte» (no envía nada) y «Enviar al
  * cliente» (genera el PDF y lo manda adjunto). Mismo recorrido que la carta natal.
  */
-function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
+/** Datos propios del pedido: dónde pasa su cumpleaños o con quién es la compatibilidad. */
+function DatosDelPedido({ extra }) {
+  if (extra?.revolucion_solar) {
+    const rs = extra.revolucion_solar
+    return <span>Cumpleaños en {rs.ciudad}, {rs.pais} · ciclo {rs.anio}</span>
+  }
+  if (extra?.segunda_persona) {
+    const sp = extra.segunda_persona
+    return <span>Con {sp.nombre}: {sp.fecha} · {sp.hora ? `${sp.hora} h` : 'hora desconocida'} · {sp.ciudad}, {sp.pais}</span>
+  }
+  return null
+}
+
+function DetallePedido({ api, pedidoId, onCerrar, onCambio, acciones }) {
   const avisar = useAviso()
   const confirmar = useConfirmar()
   const [datos, setDatos] = useState(null)
@@ -149,6 +162,7 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
           {pedido && (
             <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-tinta-suave">
               <span>Nació {nacimiento(pedido.fecha_hora_local)} · {lugar(pedido.ciudad, pedido.pais)}</span>
+              <DatosDelPedido extra={pedido.datos_extra} />
               <span className="inline-flex items-center gap-1 font-mono text-xs">{pedido.referencia_hotmart}<BotonCopiar texto={pedido.referencia_hotmart} etiqueta="Copiar código" /></span>
               <Insignia tono={insignia.tono} punto>{insignia.etiqueta}</Insignia>
             </div>
@@ -219,7 +233,8 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
         </div>
 
         {datos && !bloqueado && (
-          <footer className="flex flex-col gap-3 border-t border-linea bg-papel px-6 py-4 sm:flex-row sm:items-center">
+          <footer className="border-t border-linea bg-papel px-6 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex-1 text-sm text-tinta-suave">
               {!hayTexto && 'Falta generar el reporte.'}
               {hayTexto && !aprobado && 'Revisa el texto y apruébalo.'}
@@ -234,6 +249,14 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
               cargando={enCurso === 'enviar'} onClick={enviar}>
               {enCurso === 'enviar' ? 'Armando el PDF y enviando…' : enviado ? 'Reenviar PDF' : 'Enviar al cliente'}
             </Boton>
+          </div>
+          {acciones && !enviado && (
+            <button type="button" title="Solo si la preparaste y enviaste por correo fuera del panel"
+              onClick={() => acciones.pedido(pedido, 'marcar-enviado').then((ok) => ok && onCerrar())}
+              className="mt-3 text-xs text-tinta-tenue underline-offset-2 hover:text-tinta hover:underline">
+              La entregué a mano: marcar como entregada
+            </button>
+          )}
           </footer>
         )}
       </section>
