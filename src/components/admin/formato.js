@@ -53,6 +53,18 @@ export function saludo(fecha = new Date()) {
 
 /** Coincidencia sin tildes ni mayúsculas, para el buscador. */
 export function coincide(texto, consulta) {
-  const normalizar = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const normalizar = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   return normalizar(texto).includes(normalizar(consulta))
+}
+
+/** Estado del reporte temático de un pedido (último ProductoGenerado) para mostrar en el panel. */
+export const ESTADOS_REPORTE = {
+  null: { etiqueta: 'Por generar', tono: 'neutro' },
+  pendiente: { etiqueta: 'Generación incompleta', tono: 'rojo' },
+  generando: { etiqueta: 'Generando', tono: 'neutro' },
+  fallido: { etiqueta: 'Falló: regenerar', tono: 'rojo' },
+  generado: { etiqueta: 'Por revisar', tono: 'oro' },
+  editado: { etiqueta: 'Por revisar', tono: 'oro' },
+  aprobado: { etiqueta: 'PDF por enviar', tono: 'azul' },
+  enviado: { etiqueta: 'PDF enviado', tono: 'verde' },
 }

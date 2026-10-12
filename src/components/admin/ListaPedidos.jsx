@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Boton, BotonCopiar, Esqueleto, Insignia, Tarjeta, Vacio } from './ui'
-import { coincide, fechaHora, haceCuanto, horasDesde, lugar, nacimiento } from './formato'
+import { ESTADOS_REPORTE, coincide, fechaHora, haceCuanto, horasDesde, lugar, nacimiento } from './formato'
 
 const ESTADOS = {
   pendiente: { etiqueta: 'Esperando pago', tono: 'ambar' },
@@ -46,7 +46,7 @@ function fechaClave(p) {
  * la venta de Hotmart por astrea-pedido-<id>), se marca el envío y se
  * registra un reembolso.
  */
-function ListaPedidos({ pedidos, busqueda, acciones }) {
+function ListaPedidos({ pedidos, busqueda, acciones, abrirPedido }) {
   const [filtro, setFiltro] = useState('activos')
   const incluye = FILTROS.find((f) => f.id === filtro).incluye
   const visibles = (pedidos || [])
@@ -60,8 +60,15 @@ function ListaPedidos({ pedidos, busqueda, acciones }) {
         {p.estado === 'pendiente' && (
           <Boton variante="primario" tamano="sm" cargando={ocupado('confirmar-pago')} onClick={() => acciones.pedido(p, 'confirmar-pago')}>Confirmar pago</Boton>
         )}
+        {p.automatico && p.estado !== 'pendiente' && p.estado !== 'reembolsado' && (
+          <Boton variante={p.estado === 'enviado' ? 'borde' : 'oro'} tamano="sm" onClick={() => abrirPedido(p.id)}>
+            {p.estado === 'enviado' ? 'Ver reporte' : !p.reporte_estado || ['pendiente', 'fallido'].includes(p.reporte_estado) ? 'Generar reporte' : 'Revisar y enviar'}
+          </Boton>
+        )}
         {p.estado === 'confirmado' && (
-          <Boton variante="oro" tamano="sm" cargando={ocupado('marcar-enviado')} onClick={() => acciones.pedido(p, 'marcar-enviado')}>Marcar enviado</Boton>
+          <Boton variante={p.automatico ? 'fantasma' : 'oro'} tamano="sm" cargando={ocupado('marcar-enviado')}
+            title={p.automatico ? 'Solo si lo enviaste tú por correo, fuera del panel' : undefined}
+            onClick={() => acciones.pedido(p, 'marcar-enviado')}>{p.automatico ? 'Marcar enviado a mano' : 'Marcar enviado'}</Boton>
         )}
         {(p.estado === 'confirmado' || p.estado === 'enviado') && (
           <Boton variante="fantasma" tamano="sm" className="text-vino hover:text-vino" cargando={ocupado('reembolsar')}
@@ -74,7 +81,8 @@ function ListaPedidos({ pedidos, busqueda, acciones }) {
   return (
     <div className="space-y-4">
       <p className="max-w-3xl text-sm leading-relaxed text-tinta-suave">
-        Estos reportes todavía se preparan a mano: confirma el pago en Hotmart (busca el código), envía el PDF por correo y márcalo como enviado.
+        Confirma el pago en Hotmart (busca el código). Amor, vocación, dinero y patrones se generan, revisan y envían desde aquí;
+        revolución solar y compatibilidad todavía se preparan a mano: envía el PDF por correo y márcalo como enviado.
       </p>
       <div className="flex flex-wrap gap-2">
         {FILTROS.map((f) => {
@@ -105,6 +113,11 @@ function ListaPedidos({ pedidos, busqueda, acciones }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-display text-lg leading-tight text-tinta">{p.producto_nombre}</span>
                       <Insignia tono={estado.tono} punto>{estado.etiqueta}</Insignia>
+                      {p.automatico && p.estado === 'confirmado' && (
+                        <Insignia tono={(ESTADOS_REPORTE[p.reporte_estado] || ESTADOS_REPORTE.null).tono}>
+                          Reporte: {(ESTADOS_REPORTE[p.reporte_estado] || ESTADOS_REPORTE.null).etiqueta.toLowerCase()}
+                        </Insignia>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 truncate text-sm text-tinta">
                       <span className="truncate">{p.nombre} · {p.email}</span>

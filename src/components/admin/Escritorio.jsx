@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { crearClienteAdmin } from './api'
 import DetalleCarta from './DetalleCarta'
+import DetallePedido from './DetallePedido'
 import ListaPedidos from './ListaPedidos'
 import Resumen from './Resumen'
 import TablaCartas from './TablaCartas'
@@ -51,6 +52,7 @@ function Escritorio({ clave, onSalir }) {
   const [actualizado, setActualizado] = useState(null)
   const [busqueda, setBusqueda] = useState('')
   const [cartaAbierta, setCartaAbierta] = useState(null)
+  const [pedidoAbierto, setPedidoAbierto] = useState(null)
   const [menuMovil, setMenuMovil] = useState(false)
   const [enCurso, setEnCurso] = useState(null)
   const [, setReloj] = useState(0)
@@ -274,7 +276,8 @@ function Escritorio({ clave, onSalir }) {
           )}
 
           {seccion === 'resumen' && (
-            <Resumen datos={datos} ahora={actualizado} cargando={cargando && !actualizado} irA={irA} abrirCarta={setCartaAbierta} />
+            <Resumen datos={datos} ahora={actualizado} cargando={cargando && !actualizado} irA={irA}
+              abrirCarta={setCartaAbierta} abrirPedido={setPedidoAbierto} />
           )}
           {['esperando-pago', 'pendientes', 'aprobadas'].includes(seccion) && (
             <TablaCartas
@@ -286,10 +289,14 @@ function Escritorio({ clave, onSalir }) {
             />
           )}
           {seccion === 'pedidos' && (
-            <ListaPedidos pedidos={datos.pedidos} busqueda={busqueda} acciones={acciones} abrirCarta={setCartaAbierta} />
+            <ListaPedidos pedidos={datos.pedidos} busqueda={busqueda} acciones={acciones} abrirPedido={setPedidoAbierto} />
           )}
         </main>
       </div>
+
+      {pedidoAbierto && (
+        <DetallePedido api={api} pedidoId={pedidoAbierto} onCerrar={() => setPedidoAbierto(null)} onCambio={cargar} />
+      )}
 
       {cartaAbierta && (
         <DetalleCarta
