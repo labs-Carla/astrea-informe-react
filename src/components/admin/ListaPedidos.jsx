@@ -1,25 +1,18 @@
-import { useState, useEffect } from 'react'
-
-const API_BASE = 'https://astrea-api-production.up.railway.app/api/v1'
-
-function formatearFechaHora(isoString) {
-  if (!isoString) return 'sin fecha'
-  return new Date(isoString).toLocaleString('es-CO', {
-    day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    hour12: false, timeZone: 'America/Bogota',
-  })
-}
+import { useState } from 'react'
+import { Boton, BotonCopiar, Esqueleto, Insignia, Tarjeta, Vacio } from './ui'
+import { coincide, fechaHora, haceCuanto, horasDesde, lugar, nacimiento } from './formato'
 
 const ESTADOS = {
-  pendiente: { etiqueta: 'Esperando pago', clase: 'text-[#8B6F47] border-[#8B6F47]' },
-  confirmado: { etiqueta: 'Pagado · por enviar', clase: 'text-[#3D5A6C] border-[#3D5A6C]' },
-  enviado: { etiqueta: 'Enviado', clase: 'text-[#4E6B3A] border-[#4E6B3A]' },
-  reembolsado: { etiqueta: 'Reembolsado', clase: 'text-[#8B3A3A] border-[#8B3A3A]' },
+  pendiente: { etiqueta: 'Esperando pago', tono: 'ambar' },
+  confirmado: { etiqueta: 'Pagado · por enviar', tono: 'azul' },
+  enviado: { etiqueta: 'Enviado', tono: 'verde' },
+  reembolsado: { etiqueta: 'Reembolsado', tono: 'rojo' },
 }
 
 const FILTROS = [
   { id: 'activos', etiqueta: 'Por atender', incluye: ['pendiente', 'confirmado'] },
   { id: 'enviado', etiqueta: 'Enviados', incluye: ['enviado'] },
+  { id: 'reembolsado', etiqueta: 'Reembolsados', incluye: ['reembolsado'] },
   { id: 'todos', etiqueta: 'Todos', incluye: null },
 ]
 
@@ -27,17 +20,23 @@ function DatosExtra({ extra }) {
   if (!extra) return null
   if (extra.revolucion_solar) {
     const rs = extra.revolucion_solar
-    return <div>Cumpleaños en: {rs.ciudad}, {rs.pais} · ciclo {rs.anio}</div>
+    return <div>Cumpleaños en {rs.ciudad}, {rs.pais} · ciclo {rs.anio}</div>
   }
   if (extra.segunda_persona) {
     const sp = extra.segunda_persona
-    return (
-      <div>
-        Otra persona: {sp.nombre} · {sp.fecha} · {sp.hora ? `${sp.hora} h` : 'hora desconocida'} · {sp.ciudad}, {sp.pais}
-      </div>
-    )
+    return <div>Con {sp.nombre} · {sp.fecha} · {sp.hora ? `${sp.hora} h` : 'hora desconocida'} · {sp.ciudad}, {sp.pais}</div>
   }
   return null
+}
+
+/** La fecha que importa según el estado (cuánto lleva esperando lo que toca hacer). */
+function fechaClave(p) {
+  return {
+    pendiente: ['Pedido', p.fecha_solicitud_compra],
+    confirmado: ['Pagado', p.fecha_confirmacion_pago],
+    enviado: ['Enviado', p.fecha_envio],
+    reembolsado: ['Reembolsado', p.fecha_reembolso],
+  }[p.estado] || ['Pedido', p.fecha_solicitud_compra]
 }
 
 /**
@@ -47,123 +46,91 @@ function DatosExtra({ extra }) {
  * la venta de Hotmart por astrea-pedido-<id>), se marca el envío y se
  * registra un reembolso.
  */
-function ListaPedidos({ claveAdmin }) {
-  const [pedidos, setPedidos] = useState(null)
+function ListaPedidos({ pedidos, busqueda, acciones }) {
   const [filtro, setFiltro] = useState('activos')
-  const [error, setError] = useState(null)
-  const [enCurso, setEnCurso] = useState(null)
+  const incluye = FILTROS.find((f) => f.id === filtro).incluye
+  const visibles = (pedidos || [])
+    .filter((p) => !incluye || incluye.includes(p.estado))
+    .filter((p) => !busqueda || coincide(`${p.nombre} ${p.email} ${p.producto_nombre} ${p.referencia_hotmart} #${p.id}`, busqueda))
 
-  useEffect(() => {
-    let vigente = true
-    fetch(`${API_BASE}/admin/pedidos`, { headers: { 'X-Admin-Secret': claveAdmin } })
-      .then((r) => {
-        if (!r.ok) throw new Error('No se pudieron cargar los pedidos.')
-        return r.json()
-      })
-      .then((datos) => { if (vigente) setPedidos(datos) })
-      .catch((err) => { if (vigente) setError(err.message) })
-    return () => { vigente = false }
-  }, [claveAdmin])
-
-  async function accion(pedido, nombre, pregunta) {
-    if (!window.confirm(pregunta)) return
-    setEnCurso(`${pedido.id}:${nombre}`)
-    setError(null)
-    try {
-      const r = await fetch(`${API_BASE}/admin/pedidos/${pedido.id}/${nombre}`, {
-        method: 'POST',
-        headers: { 'X-Admin-Secret': claveAdmin },
-      })
-      const datos = await r.json()
-      if (!r.ok) throw new Error(datos.detail || 'No se pudo completar la acción.')
-      setPedidos((actuales) => actuales.map((p) => (p.id === pedido.id ? datos.pedido : p)))
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setEnCurso(null)
-    }
+  function botones(p) {
+    const ocupado = (accion) => acciones.enCurso === `pedido:${p.id}:${accion}`
+    return (
+      <div className="flex flex-wrap justify-end gap-2">
+        {p.estado === 'pendiente' && (
+          <Boton variante="primario" tamano="sm" cargando={ocupado('confirmar-pago')} onClick={() => acciones.pedido(p, 'confirmar-pago')}>Confirmar pago</Boton>
+        )}
+        {p.estado === 'confirmado' && (
+          <Boton variante="oro" tamano="sm" cargando={ocupado('marcar-enviado')} onClick={() => acciones.pedido(p, 'marcar-enviado')}>Marcar enviado</Boton>
+        )}
+        {(p.estado === 'confirmado' || p.estado === 'enviado') && (
+          <Boton variante="fantasma" tamano="sm" className="text-vino hover:text-vino" cargando={ocupado('reembolsar')}
+            onClick={() => acciones.pedido(p, 'reembolsar')}>Reembolso</Boton>
+        )}
+      </div>
+    )
   }
 
-  const incluye = FILTROS.find((f) => f.id === filtro).incluye
-  const visibles = (pedidos || []).filter((p) => !incluye || incluye.includes(p.estado))
-
   return (
-    <div>
-      <p className="text-sm text-[#5C5346] mb-4">
-        Reportes que se preparan a mano: confirma el pago en Hotmart (busca el código), envía el PDF por correo y márcalo como enviado.
+    <div className="space-y-4">
+      <p className="max-w-3xl text-sm leading-relaxed text-tinta-suave">
+        Estos reportes todavía se preparan a mano: confirma el pago en Hotmart (busca el código), envía el PDF por correo y márcalo como enviado.
       </p>
-      <div className="flex flex-wrap gap-2 mb-4">
-        {FILTROS.map(({ id, etiqueta }) => (
-          <button
-            key={id}
-            onClick={() => setFiltro(id)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-              filtro === id ? 'bg-[#8B6F47] text-[#F7F3E9]' : 'border border-[#C4B8A0] text-[#5C5346]'
-            }`}
-          >
-            {etiqueta}
-          </button>
-        ))}
-      </div>
-
-      {error && <p className="text-red-700 text-sm mb-4">{error}</p>}
-      {pedidos === null && !error && <p className="text-[#5C5346]">Cargando...</p>}
-      {pedidos && visibles.length === 0 && <p className="text-[#5C5346]">No hay pedidos aquí.</p>}
-
-      <ul className="divide-y divide-[#C4B8A0]">
-        {visibles.map((p) => {
-          const estado = ESTADOS[p.estado] || ESTADOS.pendiente
-          const ocupado = enCurso?.startsWith(`${p.id}:`)
+      <div className="flex flex-wrap gap-2">
+        {FILTROS.map((f) => {
+          const n = (pedidos || []).filter((p) => !f.incluye || f.incluye.includes(p.estado)).length
           return (
-            <li key={p.id} className="py-4 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-serif text-lg text-[#2B2620]">{p.producto_nombre}</span>
-                <span className={`text-xs border rounded px-2 py-0.5 ${estado.clase}`}>{estado.etiqueta}</span>
-              </div>
-              <div className="text-sm text-[#2B2620]">{p.nombre} · {p.email}</div>
-              <div className="text-xs text-[#8B6F47] space-y-0.5">
-                <div>Código Hotmart: {p.referencia_hotmart}</div>
-                <div>Nacimiento: {p.fecha_hora_local.replace('T', ' ').slice(0, 16)} · {p.ciudad}, {p.pais}</div>
-                <DatosExtra extra={p.datos_extra} />
-                <div>Pedido: {formatearFechaHora(p.fecha_solicitud_compra)}</div>
-                {p.fecha_confirmacion_pago && <div>Pago confirmado: {formatearFechaHora(p.fecha_confirmacion_pago)}</div>}
-                {p.fecha_envio && <div>Enviado: {formatearFechaHora(p.fecha_envio)}</div>}
-                {p.fecha_reembolso && <div className="text-[#8B3A3A]">Reembolsado: {formatearFechaHora(p.fecha_reembolso)}</div>}
-                <div>Carta calculada: #{p.carta_id}</div>
-              </div>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {p.estado === 'pendiente' && (
-                  <button
-                    disabled={ocupado}
-                    onClick={() => accion(p, 'confirmar-pago', `¿${p.email} ya pagó ${p.producto_nombre} en Hotmart?\nBusca la venta por el correo o por ${p.referencia_hotmart}.`)}
-                    className="bg-[#2B2620] text-[#F7F3E9] rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50"
-                  >
-                    Confirmar pago
-                  </button>
-                )}
-                {p.estado === 'confirmado' && (
-                  <button
-                    disabled={ocupado}
-                    onClick={() => accion(p, 'marcar-enviado', `¿Ya enviaste ${p.producto_nombre} a ${p.email}?`)}
-                    className="bg-[#2B2620] text-[#F7F3E9] rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50"
-                  >
-                    Marcar enviado
-                  </button>
-                )}
-                {p.estado !== 'reembolsado' && p.estado !== 'pendiente' && (
-                  <button
-                    disabled={ocupado}
-                    onClick={() => accion(p, 'reembolsar', `¿Registrar el reembolso de ${p.producto_nombre} de ${p.email}?\nHazlo solo si ya se reembolsó en Hotmart.`)}
-                    className="border border-[#8B3A3A] text-[#8B3A3A] rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50"
-                  >
-                    Registrar reembolso
-                  </button>
-                )}
-              </div>
-            </li>
+            <button key={f.id} type="button" onClick={() => setFiltro(f.id)}
+              className={`rounded-full px-3 py-1 text-sm transition ${filtro === f.id ? 'bg-tinta text-papel' : 'bg-papel text-tinta-suave ring-1 ring-linea hover:ring-linea-fuerte'}`}>
+              {f.etiqueta} <span className="opacity-60">{n}</span>
+            </button>
           )
         })}
-      </ul>
+      </div>
+
+      <Tarjeta className="overflow-hidden">
+        {!pedidos ? (
+          <div className="space-y-3 p-5">{[0, 1, 2].map((i) => <Esqueleto key={i} className="h-14" />)}</div>
+        ) : visibles.length === 0 ? (
+          <Vacio titulo={busqueda ? 'Sin resultados' : 'No hay pedidos aquí'} texto={busqueda ? 'Prueba con otro nombre, correo o código.' : ''} />
+        ) : (
+          <ul className="divide-y divide-linea">
+            {visibles.map((p) => {
+              const estado = ESTADOS[p.estado] || ESTADOS.pendiente
+              const [etiquetaFecha, fecha] = fechaClave(p)
+              const demorado = (p.estado === 'pendiente' || p.estado === 'confirmado') && horasDesde(fecha) > 24
+              return (
+                <li key={p.id} className="grid gap-4 px-5 py-4 md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_auto] md:items-center">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-display text-lg leading-tight text-tinta">{p.producto_nombre}</span>
+                      <Insignia tono={estado.tono} punto>{estado.etiqueta}</Insignia>
+                    </div>
+                    <div className="flex items-center gap-1 truncate text-sm text-tinta">
+                      <span className="truncate">{p.nombre} · {p.email}</span>
+                      <BotonCopiar texto={p.email} etiqueta="Copiar correo" />
+                    </div>
+                    <div className="space-y-0.5 text-xs text-tinta-tenue">
+                      <div>Nació {nacimiento(p.fecha_hora_local)} · {lugar(p.ciudad, p.pais)}</div>
+                      <DatosExtra extra={p.datos_extra} />
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-xs text-tinta-tenue">
+                    <div className="inline-flex items-center gap-1 font-mono text-tinta-suave">
+                      {p.referencia_hotmart}<BotonCopiar texto={p.referencia_hotmart} etiqueta="Copiar código Hotmart" />
+                    </div>
+                    <div className={demorado ? 'font-medium text-ambar' : ''} title={fechaHora(fecha)}>
+                      {etiquetaFecha} {haceCuanto(fecha)}
+                    </div>
+                    <div>Carta calculada #{p.carta_id}</div>
+                  </div>
+                  {botones(p)}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </Tarjeta>
     </div>
   )
 }

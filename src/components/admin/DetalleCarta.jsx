@@ -1,374 +1,343 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { URL_LECTURA } from './api'
+import { EstadoPdf } from './TablaCartas'
+import { Boton, BotonCopiar, Esqueleto, Icono, Insignia } from './ui'
+import { useAviso, useConfirmar } from './contextos'
+import { fechaHora, lugar } from './formato'
 
-const API_BASE = 'https://astrea-api-production.up.railway.app/api/v1'
+const PLANETAS = [
+  ['sol', 'Sol'], ['luna', 'Luna'], ['mercurio', 'Mercurio'], ['venus', 'Venus'], ['marte', 'Marte'],
+  ['jupiter', 'Júpiter'], ['saturno', 'Saturno'], ['urano', 'Urano'], ['neptuno', 'Neptuno'], ['pluton', 'Plutón'],
+  ['nodo_norte', 'Nodo Norte'], ['quiron', 'Quirón'], ['ascendente', 'Ascendente'], ['medio_cielo', 'Medio Cielo'],
+]
 
-function Seccion({ titulo, texto }) {
-  if (!texto) return null
+/** Las tres generaciones con Claude, en el orden en que se hacen. */
+const BLOQUES = [
+  {
+    id: 'interpretacion', titulo: 'Interpretación completa', endpoint: 'generar-interpretacion',
+    secciones: (d) => [
+      ['Esencia', d?.carta_en_una_mirada?.esencia], ['Visión general', d?.overview],
+      ['Elementos y dignidades', d?.lectura_elementos_dignidades],
+      ...PLANETAS.map(([clave, nombre]) => [nombre, d?.[clave]]),
+      ['Conclusión', d?.conclusion], ['Frase de cierre', d?.frase_de_cierre],
+    ],
+  },
+  {
+    id: 'areas_de_vida', titulo: 'Áreas de vida', endpoint: 'generar-areas-de-vida',
+    secciones: (d) => [['Vocación', d?.vocacion], ['Dinero', d?.dinero], ['Amor', d?.amor], ['Herida y don', d?.herida_y_don]],
+  },
+  {
+    id: 'transitos', titulo: 'Tránsitos', endpoint: 'generar-transitos',
+    secciones: (d) => [['Clima energético', d?.clima_energetico], ['Oportunidades', d?.oportunidades], ['Retos', d?.retos], ['Consejo', d?.consejo]],
+  },
+]
+
+function estadoBloque(detalle, id) {
+  const valor = detalle?.[id]
+  if (!valor) return 'falta'
+  if (valor._validation_error) return 'error'
+  return 'listo'
+}
+
+function Paso({ hecho, actual, etiqueta, ultimo }) {
   return (
-    <div>
-      <div className="text-xs uppercase tracking-wide text-[#8B6F47] mb-1">{titulo}</div>
-      <p>{texto}</p>
+    <li className="flex flex-1 items-center gap-2">
+      <span className={`flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] ring-1 ${
+        hecho ? 'bg-salvia text-papel ring-salvia' : actual ? 'bg-papel text-oro ring-oro' : 'bg-papel text-tinta-tenue ring-linea-fuerte'
+      }`}>
+        {hecho ? <Icono nombre="check" className="size-3.5" /> : <span className="size-1.5 rounded-full bg-current" />}
+      </span>
+      <span className={`whitespace-nowrap text-xs ${hecho || actual ? 'text-tinta' : 'text-tinta-tenue'}`}>{etiqueta}</span>
+      {!ultimo && <span className={`h-px min-w-3 flex-1 ${hecho ? 'bg-salvia/50' : 'bg-linea'}`} />}
+    </li>
+  )
+}
+
+/** Sol, Luna y Ascendente del cálculo (si vienen), para ubicar la carta de un vistazo. */
+function TresGrandes({ calculo }) {
+  const signo = (x) => x?.signo
+  const datos = [
+    ['Sol', signo(calculo?.planetas?.Sol)], ['Luna', signo(calculo?.planetas?.Luna)],
+    ['Ascendente', signo(calculo?.puntos_angulares?.Ascendente)],
+  ].filter(([, s]) => s)
+  if (!datos.length) return null
+  return (
+    <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
+      {datos.map(([k, s]) => <span key={k}><span className="text-tinta-tenue">{k}</span> <span className="text-tinta">{s}</span></span>)}
     </div>
   )
 }
 
 /**
- * Botones de accion y contenido de cada una de las 3 llamadas a Claude.
- * Cada bloque muestra su propio contenido (si existe) junto con el boton
- * para generarlo o regenerarlo, en vez de agrupar todos los botones al final.
+ * Ficha de una carta en un panel lateral: estado del recorrido, las tres
+ * generaciones con Claude (cada una con su botón), vista previa y, abajo,
+ * los dos pasos finales separados: «Aprobar lectura» (revisión, no envía
+ * nada) y «Enviar al cliente» (genera el PDF y lo manda adjunto).
  */
-function BloqueGeneracion({ titulo, existe, contenido, generando, onGenerar, textoBotonGenerar, textoBotonRegenerar }) {
-  return (
-    <div className="bg-[#EDE6D3] rounded-lg p-5 mb-4">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="font-serif text-lg text-[#2B2620]">{titulo}</h2>
-        <button
-          onClick={onGenerar}
-          disabled={generando}
-          className="text-xs border border-[#8B6F47] text-[#8B6F47] rounded-lg px-3 py-1.5 font-medium disabled:opacity-50 whitespace-nowrap"
-        >
-          {generando ? 'Generando...' : existe ? textoBotonRegenerar : textoBotonGenerar}
-        </button>
-      </div>
-
-      {existe ? (
-        <details>
-          <summary className="cursor-pointer text-xs uppercase tracking-wide text-[#8B6F47]">
-            Ver contenido
-          </summary>
-          <div className="mt-4 space-y-4 text-sm text-[#2B2620] max-h-[500px] overflow-y-auto">
-            {contenido}
-          </div>
-        </details>
-      ) : (
-        <p className="text-sm text-[#5C5346] italic">Aún no generado.</p>
-      )}
-    </div>
-  )
-}
-
-/**
- * Detalle de una carta pendiente: muestra el contenido completo de las
- * 3 llamadas a Claude (interpretacion completa, areas de vida, transitos),
- * cada una con su propio boton de generar/regenerar, y finalmente aprobar
- * el envio (genera el token de acceso).
- */
-function DetalleCarta({ claveAdmin, cartaId, onVolver }) {
+function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones }) {
+  const avisar = useAviso()
+  const confirmar = useConfirmar()
   const [detalle, setDetalle] = useState(null)
-  const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [genero, setGenero] = useState('')
-  const [accionEnCurso, setAccionEnCurso] = useState(null)
-  const [mensajeAccion, setMensajeAccion] = useState(null)
-  const [linkAprobado, setLinkAprobado] = useState(null)
-  const [errorVistaPrevia, setErrorVistaPrevia] = useState(null)
+  const [enCurso, setEnCurso] = useState(null)
+  const [pestana, setPestana] = useState('interpretacion')
 
-  useEffect(() => {
-    cargarDetalle()
+  /** Detalle de la carta; 409 = todavía sin interpretación (se muestra para generarla). */
+  const obtener = useCallback(async () => {
+    try {
+      return { datos: await api.get(`/admin/carta/${cartaId}`) }
+    } catch (err) {
+      return err.status === 409 ? { datos: { sinInterpretacion: true } } : { error: err.message }
+    }
+  }, [api, cartaId])
+
+  const aplicar = useCallback(({ datos, error: fallo }) => {
+    setError(fallo || null)
+    if (datos) setDetalle(datos)
+    if (datos?.genero) setGenero(datos.genero)
   }, [])
 
-  async function cargarDetalle() {
-    setCargando(true)
-    setError(null)
+  const cargar = useCallback(async () => aplicar(await obtener()), [obtener, aplicar])
 
+  useEffect(() => {
+    let vigente = true
+    obtener().then((r) => { if (vigente) aplicar(r) })
+    return () => { vigente = false }
+  }, [obtener, aplicar])
+
+  useEffect(() => {
+    const alTeclear = (e) => e.key === 'Escape' && !document.querySelector('[role=alertdialog]') && onCerrar()
+    window.addEventListener('keydown', alTeclear)
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', alTeclear); document.body.style.overflow = '' }
+  }, [onCerrar])
+
+  async function accion(endpoint, cuerpo, exito) {
+    setEnCurso(endpoint)
     try {
-      const respuesta = await fetch(`${API_BASE}/admin/carta/${cartaId}`, {
-        headers: { 'X-Admin-Secret': claveAdmin },
-      })
-
-      if (respuesta.status === 409) {
-        setDetalle({ sinInterpretacion: true })
-        setCargando(false)
-        return
-      }
-
-      if (!respuesta.ok) throw new Error('No se pudo cargar el detalle.')
-
-      const datos = await respuesta.json()
-      setDetalle(datos)
-      if (datos.genero) setGenero(datos.genero)
+      const r = await api.post(`/admin/${endpoint}/${cartaId}`, cuerpo)
+      avisar(exito || r.mensaje || 'Listo.')
+      await cargar()
+      onCambio()
+      return r
     } catch (err) {
-      setError(err.message)
+      avisar(err.message, 'error')
+      return null
     } finally {
-      setCargando(false)
+      setEnCurso(null)
     }
   }
 
-  async function llamarAccion(endpoint, body = {}) {
-    setAccionEnCurso(endpoint)
-    setMensajeAccion(null)
-
-    try {
-      const respuesta = await fetch(`${API_BASE}/admin/${endpoint}/${cartaId}`, {
-        method: 'POST',
-        headers: {
-          'X-Admin-Secret': claveAdmin,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
+  async function generar(bloque, existe) {
+    if (existe) {
+      const ok = await confirmar({
+        titulo: `¿Regenerar ${bloque.titulo.toLowerCase()}?`,
+        texto: <p>Se reemplaza el texto actual por uno nuevo (es otra llamada a Claude). Revísalo antes de aprobar.</p>,
+        accion: 'Regenerar',
       })
-
-      const resultado = await respuesta.json()
-
-      if (!respuesta.ok) {
-        setMensajeAccion(`Error: ${resultado.detail || 'algo salió mal'}`)
-        return
-      }
-
-      if (endpoint === 'aprobar') {
-        setLinkAprobado(resultado.link)
-        cargarDetalle()
-      } else {
-        setMensajeAccion(resultado.mensaje || resultado.status)
-        cargarDetalle()
-      }
-    } catch (err) {
-      setMensajeAccion('Error de conexión.')
-    } finally {
-      setAccionEnCurso(null)
+      if (!ok) return
     }
+    await accion(bloque.endpoint, { genero: genero || null, forzar: existe }, `${bloque.titulo}: generada.`)
   }
 
-  /**
-   * Abre la vista previa HTML (solo admin) en una pestana nueva. El endpoint
-   * exige el header X-Admin-Secret, asi que no sirve un <a href> directo: se
-   * pide el HTML con fetch y se abre como blob. La pestana se abre antes del
-   * await para que el navegador no la bloquee como popup.
-   */
-  async function abrirVistaPrevia() {
-    setErrorVistaPrevia(null)
-    const pestana = window.open('', '_blank')
+  async function aprobar() {
+    const ok = await confirmar({
+      titulo: '¿Aprobar esta lectura?',
+      texto: <p>Queda lista para enviar y se crea su enlace web. <b>No se envía ningún correo todavía</b>: eso es el paso «Enviar al cliente».</p>,
+      accion: 'Aprobar lectura',
+    })
+    if (ok) await accion('aprobar', {}, 'Lectura aprobada. Ya puedes enviarla.')
+  }
+
+  async function enviar(reenviar) {
+    const ok = await confirmar({
+      titulo: reenviar ? '¿Reenviar la lectura?' : '¿Enviar la lectura al cliente?',
+      texto: (
+        <p>Se genera el PDF y se envía adjunto a <b>{detalle.email}</b> con el correo «Tu lectura está lista».
+          {reenviar && ' La persona recibirá un segundo correo.'}</p>
+      ),
+      accion: reenviar ? 'Reenviar' : 'Enviar ahora',
+      variante: 'oro',
+    })
+    if (ok) await accion('enviar-lectura', reenviar ? { reenviar: true } : {})
+  }
+
+  /** La vista previa exige X-Admin-Secret: se pide con fetch y se abre como blob. */
+  async function vistaPrevia() {
+    const pestanaNueva = window.open('', '_blank')
+    setEnCurso('vista-previa')
     try {
-      const respuesta = await fetch(`${API_BASE}/admin/carta/${cartaId}/vista-previa`, {
-        headers: { 'X-Admin-Secret': claveAdmin },
-      })
-      if (!respuesta.ok) throw new Error(`No se pudo generar la vista previa (${respuesta.status}).`)
-      const html = await respuesta.text()
+      const html = await api.texto(`/admin/carta/${cartaId}/vista-previa`)
       const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
-      if (pestana) pestana.location.href = url
+      if (pestanaNueva) pestanaNueva.location.href = url
       else window.location.href = url
     } catch (err) {
-      if (pestana) pestana.close()
-      setErrorVistaPrevia(err.message)
+      pestanaNueva?.close()
+      avisar(`No se pudo abrir la vista previa: ${err.message}`, 'error')
+    } finally {
+      setEnCurso(null)
     }
   }
 
-  const botonVistaPrevia = (
-    <div className="mb-6">
-      <button
-        onClick={abrirVistaPrevia}
-        className="w-full border border-[#2B2620] text-[#2B2620] rounded-lg py-2.5 text-sm font-medium hover:bg-[#EDE6D3]"
-      >
-        Ver vista previa (HTML) ↗
-      </button>
-      {errorVistaPrevia && <p className="text-red-700 text-sm mt-2">{errorVistaPrevia}</p>}
-    </div>
-  )
+  const aprobada = Boolean(detalle?.enviado)
+  const enviada = Boolean(detalle?.fecha_correo_entrega)
+  const estados = Object.fromEntries(BLOQUES.map((b) => [b.id, estadoBloque(detalle, b.id)]))
+  const faltan = BLOQUES.filter((b) => estados[b.id] !== 'listo')
+  const bloque = BLOQUES.find((b) => b.id === pestana)
 
-  if (cargando) return <div className="p-6 text-[#5C5346]">Cargando...</div>
-  if (error) return <div className="p-6 text-red-700">{error}</div>
-
-  const tieneErrorValidacion = Boolean(detalle.interpretacion?._validation_error)
-  const sinInterpretacion = detalle.sinInterpretacion || tieneErrorValidacion
-
-  const nombresPlanetas = [
-    'sol', 'luna', 'mercurio', 'venus', 'marte', 'jupiter',
-    'saturno', 'urano', 'neptuno', 'pluton', 'nodo_norte', 'quiron',
-    'ascendente', 'medio_cielo',
+  const pasos = [
+    ['Pagada', true],
+    ['Interpretación', estados.interpretacion === 'listo'],
+    ['Áreas', estados.areas_de_vida === 'listo'],
+    ['Tránsitos', estados.transitos === 'listo'],
+    ['Aprobada', aprobada],
+    ['PDF enviado', enviada],
   ]
-
-  if (sinInterpretacion) {
-    return (
-      <div className="min-h-screen bg-[#F7F3E9] px-6 py-8 max-w-2xl mx-auto">
-        <button onClick={onVolver} className="text-[#8B6F47] mb-4 text-sm">
-          ← Volver a la lista
-        </button>
-
-        <h1 className="font-serif text-2xl text-[#2B2620] mb-6">Carta #{cartaId}</h1>
-
-        {botonVistaPrevia}
-
-        <div className="bg-[#EDE6D3] rounded-lg p-5 mb-4">
-          <p className="text-[#5C5346] mb-4">
-            {tieneErrorValidacion
-              ? 'La interpretación generada tuvo un error de formato. Puedes regenerarla.'
-              : 'Esta carta aún no tiene interpretación completa generada.'}
-          </p>
-
-          <label className="block text-xs uppercase tracking-wide text-[#8B6F47] mb-1">
-            Género (para concordancia gramatical)
-          </label>
-          <select
-            value={genero}
-            onChange={(e) => setGenero(e.target.value)}
-            className="w-full border border-[#C4B8A0] rounded-lg px-3 py-2 mb-4"
-          >
-            <option value="">No especificar</option>
-            <option value="masculino">Masculino</option>
-            <option value="femenino">Femenino</option>
-          </select>
-
-          <button
-            onClick={() =>
-              llamarAccion('generar-interpretacion', {
-                genero: genero || null,
-                forzar: tieneErrorValidacion,
-              })
-            }
-            disabled={accionEnCurso === 'generar-interpretacion'}
-            className="w-full bg-[#2B2620] text-[#F7F3E9] rounded-lg py-3 font-medium disabled:opacity-50"
-          >
-            {accionEnCurso === 'generar-interpretacion'
-              ? 'Generando (15-30 seg)...'
-              : 'Generar interpretación completa'}
-          </button>
-        </div>
-      </div>
-    )
-  }
+  const primerPendiente = pasos.findIndex(([, hecho]) => !hecho)
 
   return (
-    <div className="min-h-screen bg-[#F7F3E9] px-6 py-8 max-w-2xl mx-auto">
-      <button onClick={onVolver} className="text-[#8B6F47] mb-4 text-sm">
-        ← Volver a la lista
-      </button>
-
-      <h1 className="font-serif text-2xl text-[#2B2620] mb-2">Carta #{cartaId}</h1>
-      {detalle.reembolsado && (
-        <p className="inline-block text-xs font-medium text-[#8B3A3A] border border-[#8B3A3A] rounded px-2 py-0.5 mb-2">
-          Reembolsado
-        </p>
-      )}
-      {detalle.ciudad && (
-        <p className="text-sm text-[#5C5346] mb-2">
-          Lugar de nacimiento: {[detalle.ciudad, detalle.pais].filter(Boolean).join(', ')}
-        </p>
-      )}
-
-      {botonVistaPrevia}
-
-      <div className="mb-4">
-        <label className="block text-xs uppercase tracking-wide text-[#8B6F47] mb-1">
-          Género (aplica a las 3 generaciones)
-        </label>
-        <select
-          value={genero}
-          onChange={(e) => setGenero(e.target.value)}
-          className="w-full border border-[#C4B8A0] rounded-lg px-3 py-2"
-        >
-          <option value="">No especificar</option>
-          <option value="masculino">Masculino</option>
-          <option value="femenino">Femenino</option>
-        </select>
-      </div>
-
-      <BloqueGeneracion
-        titulo="Interpretación completa"
-        existe={true}
-        generando={accionEnCurso === 'generar-interpretacion'}
-        onGenerar={() =>
-          llamarAccion('generar-interpretacion', { genero: genero || null, forzar: true })
-        }
-        textoBotonGenerar="Generar"
-        textoBotonRegenerar="Regenerar"
-        contenido={
-          <>
-            <Seccion titulo="Esencia" texto={detalle.interpretacion?.carta_en_una_mirada?.esencia} />
-            <Seccion titulo="Visión general" texto={detalle.interpretacion?.overview} />
-            <Seccion titulo="Elementos y dignidades" texto={detalle.interpretacion?.lectura_elementos_dignidades} />
-            {nombresPlanetas.map((planeta) => (
-              <Seccion key={planeta} titulo={planeta} texto={detalle.interpretacion?.[planeta]} />
-            ))}
-            <Seccion titulo="Conclusión" texto={detalle.interpretacion?.conclusion} />
-            <Seccion titulo="Frase de cierre" texto={detalle.interpretacion?.frase_de_cierre} />
-          </>
-        }
-      />
-
-      <BloqueGeneracion
-        titulo="Áreas de vida"
-        existe={Boolean(detalle.areas_de_vida)}
-        generando={accionEnCurso === 'generar-areas-de-vida'}
-        onGenerar={() =>
-          llamarAccion('generar-areas-de-vida', { genero: genero || null, forzar: true })
-        }
-        textoBotonGenerar="Generar"
-        textoBotonRegenerar="Regenerar"
-        contenido={
-          detalle.areas_de_vida && (
-            <>
-              <Seccion titulo="Vocación" texto={detalle.areas_de_vida.vocacion} />
-              <Seccion titulo="Dinero" texto={detalle.areas_de_vida.dinero} />
-              <Seccion titulo="Amor" texto={detalle.areas_de_vida.amor} />
-              <Seccion titulo="Herida y don" texto={detalle.areas_de_vida.herida_y_don} />
-            </>
-          )
-        }
-      />
-
-      <BloqueGeneracion
-        titulo="Tránsitos"
-        existe={Boolean(detalle.transitos)}
-        generando={accionEnCurso === 'generar-transitos'}
-        onGenerar={() =>
-          llamarAccion('generar-transitos', { genero: genero || null, forzar: true })
-        }
-        textoBotonGenerar="Generar"
-        textoBotonRegenerar="Regenerar"
-        contenido={
-          detalle.transitos && (
-            <>
-              <Seccion titulo="Clima energético" texto={detalle.transitos.clima_energetico} />
-              <Seccion titulo="Oportunidades" texto={detalle.transitos.oportunidades} />
-              <Seccion titulo="Retos" texto={detalle.transitos.retos} />
-              <Seccion titulo="Consejo" texto={detalle.transitos.consejo} />
-            </>
-          )
-        }
-      />
-
-      {mensajeAccion && (
-        <p className="text-sm text-[#5C5346] mb-4">{mensajeAccion}</p>
-      )}
-
-      {/* Dos pasos distintos: Aprobar (revision) y Enviar (PDF adjunto por correo). */}
-      {linkAprobado || detalle.enviado ? (
-        <div className="space-y-3">
-          <p className="text-sm text-[#2B2620]">✓ Lectura aprobada.</p>
-          {detalle.reembolsado ? (
-            <p className="text-sm text-[#8B3A3A]">Orden reembolsada: no se envía.</p>
-          ) : detalle.fecha_correo_entrega ? (
-            <div className="bg-[#EDE6D3] rounded-lg p-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-[#2B2620]">
-                ✓ Enviada por correo a {detalle.email} el {new Date(detalle.fecha_correo_entrega).toLocaleString('es')}.
-              </p>
-              <button
-                onClick={() => window.confirm(`¿Reenviar la lectura en PDF a ${detalle.email}?`) && llamarAccion('enviar-lectura', { reenviar: true })}
-                disabled={accionEnCurso === 'enviar-lectura'}
-                className="border border-[#2B2620] text-[#2B2620] rounded-lg px-4 py-2 text-sm disabled:opacity-50"
-              >
-                {accionEnCurso === 'enviar-lectura' ? 'Reenviando...' : 'Reenviar'}
-              </button>
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-noche/40 backdrop-blur-[1px]" onClick={onCerrar} />
+      <section role="dialog" aria-modal="true" aria-label={`Carta ${cartaId}`}
+        className="relative flex h-full w-full max-w-3xl flex-col bg-marfil font-ui shadow-2xl">
+        <header className="border-b border-linea bg-papel px-6 pb-5 pt-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-xs uppercase tracking-wider text-tinta-tenue">Carta natal · #{cartaId}</div>
+              <h2 className="mt-1 truncate font-display text-3xl leading-tight text-tinta">
+                {detalle?.nombre_reporte || resumenLista?.nombre_reporte || (detalle ? '(sin nombre)' : '…')}
+              </h2>
+              {detalle?.email && (
+                <div className="mt-0.5 flex items-center gap-1 text-sm text-tinta-suave">
+                  {detalle.email}<BotonCopiar texto={detalle.email} etiqueta="Copiar correo" />
+                </div>
+              )}
             </div>
-          ) : (
-            <button
-              onClick={() => window.confirm(`¿Enviar la lectura en PDF a ${detalle.email}?`) && llamarAccion('enviar-lectura', {})}
-              disabled={accionEnCurso === 'enviar-lectura'}
-              className="w-full bg-[#8B6F47] text-[#F7F3E9] rounded-lg py-3 font-medium disabled:opacity-50"
-            >
-              {accionEnCurso === 'enviar-lectura' ? 'Generando PDF y enviando...' : 'Enviar al cliente (PDF adjunto)'}
+            <button type="button" onClick={onCerrar} aria-label="Cerrar"
+              className="rounded-lg p-2 text-tinta-tenue hover:bg-pergamino hover:text-tinta">
+              <Icono nombre="cerrar" className="size-5" />
             </button>
+          </div>
+
+          {detalle && !detalle.sinInterpretacion && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-tinta-suave">
+              <span>{lugar(detalle.ciudad, detalle.pais)}</span>
+              <TresGrandes calculo={detalle.calculo} />
+              {aprobada && <EstadoPdf carta={detalle} />}
+            </div>
+          )}
+
+          <ol className="mt-5 flex flex-wrap gap-y-2">
+            {pasos.map(([etiqueta, hecho], i) => (
+              <Paso key={etiqueta} etiqueta={etiqueta} hecho={hecho} actual={i === primerPendiente} ultimo={i === pasos.length - 1} />
+            ))}
+          </ol>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          {error && <p className="rounded-lg bg-[#fbeeec] px-4 py-3 text-sm text-vino">{error}</p>}
+          {!detalle && !error && <div className="space-y-4"><Esqueleto className="h-10" /><Esqueleto className="h-64" /></div>}
+
+          {detalle && (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-end gap-4">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-tinta-tenue">Género (concordancia del texto)</span>
+                  <select value={genero} onChange={(e) => setGenero(e.target.value)}
+                    className="h-9 rounded-lg bg-papel px-3 text-sm ring-1 ring-linea-fuerte outline-none focus:ring-2 focus:ring-oro">
+                    <option value="">No especificar</option>
+                    <option value="femenino">Femenino</option>
+                    <option value="masculino">Masculino</option>
+                  </select>
+                </label>
+                <Boton icono="externo" onClick={vistaPrevia} cargando={enCurso === 'vista-previa'}>Vista previa del libro</Boton>
+                {resumenLista?.token && (
+                  <a href={`${URL_LECTURA}${resumenLista.token}`} target="_blank" rel="noreferrer"
+                    className="inline-flex h-9 items-center gap-1.5 text-sm text-oro hover:underline">
+                    Lectura web <Icono nombre="externo" className="size-3.5" />
+                  </a>
+                )}
+              </div>
+
+              <div className="rounded-xl bg-papel ring-1 ring-linea">
+                <div className="flex gap-1 overflow-x-auto border-b border-linea px-2 pt-2" role="tablist">
+                  {BLOQUES.map((b) => (
+                    <button key={b.id} type="button" role="tab" aria-selected={pestana === b.id} onClick={() => setPestana(b.id)}
+                      className={`flex items-center gap-2 whitespace-nowrap rounded-t-lg border-b-2 px-3 py-2.5 text-sm transition ${
+                        pestana === b.id ? 'border-oro text-tinta' : 'border-transparent text-tinta-tenue hover:text-tinta'
+                      }`}>
+                      <span className={`size-1.5 rounded-full ${estados[b.id] === 'listo' ? 'bg-salvia' : estados[b.id] === 'error' ? 'bg-vino' : 'bg-linea-fuerte'}`} />
+                      {b.titulo}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="p-5">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    {estados[bloque.id] === 'listo' && <Insignia tono="verde" punto>Generada</Insignia>}
+                    {estados[bloque.id] === 'error' && <Insignia tono="rojo" punto>Error de formato: regenérala</Insignia>}
+                    {estados[bloque.id] === 'falta' && <Insignia punto>Aún no generada</Insignia>}
+                    <Boton variante={estados[bloque.id] === 'listo' ? 'borde' : 'primario'} tamano="sm"
+                      cargando={enCurso === bloque.endpoint}
+                      disabled={bloque.id !== 'interpretacion' && estados.interpretacion !== 'listo'}
+                      onClick={() => generar(bloque, estados[bloque.id] !== 'falta')}>
+                      {enCurso === bloque.endpoint ? 'Generando (15–30 s)…' : estados[bloque.id] === 'falta' ? 'Generar' : 'Regenerar'}
+                    </Boton>
+                  </div>
+                  {bloque.id !== 'interpretacion' && estados.interpretacion !== 'listo' && (
+                    <p className="mb-4 text-sm text-tinta-tenue">Primero genera la interpretación completa.</p>
+                  )}
+                  {estados[bloque.id] === 'listo' ? (
+                    <div className="space-y-5">
+                      {bloque.secciones(detalle[bloque.id]).filter(([, t]) => t).map(([titulo, texto]) => (
+                        <div key={titulo}>
+                          <div className="mb-1 font-romana text-[11px] tracking-[.18em] text-oro">{titulo.toUpperCase()}</div>
+                          <p className="whitespace-pre-line font-display text-[17px] leading-relaxed text-tinta">{texto}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-tinta-tenue">El texto aparecerá aquí para revisarlo antes de aprobar.</p>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
-      ) : (
-        <button
-          onClick={() => llamarAccion('aprobar', {})}
-          disabled={accionEnCurso === 'aprobar'}
-          className="w-full bg-[#2B2620] text-[#F7F3E9] rounded-lg py-3 font-medium disabled:opacity-50"
-        >
-          {accionEnCurso === 'aprobar' ? 'Aprobando...' : 'Aprobar lectura'}
-        </button>
-      )}
+
+        {detalle && (
+          <footer className="border-t border-linea bg-papel px-6 py-4">
+            {detalle.reembolsado ? (
+              <p className="text-sm text-vino">Orden reembolsada: no se envía.</p>
+            ) : (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex-1 text-sm text-tinta-suave">
+                  {!aprobada && (faltan.length
+                    ? `Falta: ${faltan.map((b) => b.titulo.toLowerCase()).join(', ')}.`
+                    : 'Todo generado. Revisa el texto y aprueba.')}
+                  {aprobada && !enviada && 'Aprobada. Falta enviar el PDF por correo.'}
+                  {enviada && `PDF enviado el ${fechaHora(detalle.fecha_correo_entrega)}.`}
+                </div>
+                <Boton variante={aprobada ? 'borde' : 'primario'} tamano="lg" icono={aprobada ? 'check' : undefined}
+                  disabled={aprobada || estados.interpretacion !== 'listo'} cargando={enCurso === 'aprobar'} onClick={aprobar}>
+                  {aprobada ? 'Aprobada' : 'Aprobar lectura'}
+                </Boton>
+                <Boton variante={enviada ? 'borde' : 'oro'} tamano="lg" icono="enviar" disabled={!aprobada}
+                  cargando={enCurso === 'enviar-lectura'} onClick={() => enviar(enviada)}>
+                  {enCurso === 'enviar-lectura' ? 'Generando PDF y enviando…' : enviada ? 'Reenviar' : 'Enviar al cliente'}
+                </Boton>
+              </div>
+            )}
+            {acciones && aprobada && !detalle.reembolsado && (
+              <button type="button" onClick={() => acciones.reembolsar({ id: cartaId, nombre_reporte: detalle.nombre_reporte, email: detalle.email }).then(cargar)}
+                className="mt-3 text-xs text-tinta-tenue underline-offset-2 hover:text-vino hover:underline">
+                Registrar reembolso
+              </button>
+            )}
+          </footer>
+        )}
+      </section>
     </div>
   )
 }

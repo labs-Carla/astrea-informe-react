@@ -1,15 +1,29 @@
-import { useState } from 'react'
-import ListaPendientes from './ListaPendientes'
+import { useEffect, useState } from 'react'
+import { crearClienteAdmin } from './api'
+import Escritorio from './Escritorio'
+import { Boton, Icono, ProveedorAvisos, ProveedorConfirmacion } from './ui'
 
-const API_BASE = 'https://astrea-api-production.up.railway.app/api/v1'
+const FUENTES =
+  'https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap'
+
+/** Carga las fuentes del panel solo en /admin (el reporte del cliente no las necesita). */
+function useFuentesPanel() {
+  useEffect(() => {
+    if (document.getElementById('fuentes-panel')) return
+    const enlace = Object.assign(document.createElement('link'), { id: 'fuentes-panel', rel: 'stylesheet', href: FUENTES })
+    document.head.appendChild(enlace)
+    document.title = 'Astrea · Panel editorial'
+  }, [])
+}
 
 /**
  * Punto de entrada del panel de administracion. Pide la clave de admin
  * una sola vez (guardada solo en memoria, se pierde al recargar la
  * pagina — no persiste en localStorage por seguridad), y la valida
- * contra el backend antes de mostrar el resto del panel.
+ * contra el backend antes de mostrar el escritorio.
  */
 function PanelAdmin() {
+  useFuentesPanel()
   const [clave, setClave] = useState('')
   const [claveValidada, setClaveValidada] = useState(null)
   const [validando, setValidando] = useState(false)
@@ -19,55 +33,64 @@ function PanelAdmin() {
     e.preventDefault()
     setValidando(true)
     setError(null)
-
     try {
-      const respuesta = await fetch(`${API_BASE}/admin/pendientes`, {
-        headers: { 'X-Admin-Secret': clave },
-      })
-
-      if (!respuesta.ok) {
-        setError('Clave incorrecta.')
-        setValidando(false)
-        return
-      }
-
+      await crearClienteAdmin(clave).get('/admin/pendientes')
       setClaveValidada(clave)
     } catch (err) {
-      setError('No se pudo conectar con el servidor.')
+      setError(err.status === 401 || err.status === 403 ? 'Clave incorrecta.' : err.message)
     } finally {
       setValidando(false)
     }
   }
 
-  if (!claveValidada) {
+  if (claveValidada) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F7F3E9] px-6">
-        <form onSubmit={validarClave} className="w-full max-w-sm">
-          <h1 className="font-serif text-2xl text-[#2B2620] mb-6 text-center">
-            Panel Astrea
-          </h1>
-          <input
-            type="password"
-            value={clave}
-            onChange={(e) => setClave(e.target.value)}
-            placeholder="Clave de administrador"
-            className="w-full border border-[#C4B8A0] rounded-lg px-4 py-3 mb-3"
-            autoFocus
-          />
-          {error && <p className="text-red-700 text-sm mb-3">{error}</p>}
-          <button
-            type="submit"
-            disabled={validando}
-            className="w-full bg-[#2B2620] text-[#F7F3E9] rounded-lg py-3 font-medium disabled:opacity-50"
-          >
-            {validando ? 'Verificando...' : 'Entrar'}
-          </button>
-        </form>
-      </div>
+      <ProveedorAvisos>
+        <ProveedorConfirmacion>
+          <Escritorio clave={claveValidada} onSalir={() => { setClaveValidada(null); setClave('') }} />
+        </ProveedorConfirmacion>
+      </ProveedorAvisos>
     )
   }
 
-  return <ListaPendientes claveAdmin={claveValidada} />
+  return (
+    <div className="grid min-h-screen font-ui lg:grid-cols-[1.1fr_1fr]">
+      <div className="relative hidden overflow-hidden bg-noche lg:block">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(201,169,110,.18),transparent_55%),radial-gradient(ellipse_at_80%_90%,rgba(201,169,110,.10),transparent_50%)]" />
+        <div className="relative flex h-full flex-col justify-between p-12 text-papel">
+          <div className="font-romana text-sm tracking-[.5em]">ASTREA</div>
+          <div>
+            <Icono nombre="estrella" className="mb-6 size-6 text-oro-claro" />
+            <p className="max-w-md font-display text-5xl leading-[1.05]">El taller donde cada lectura se revisa antes de llegar a quien la pidió.</p>
+            <p className="mt-5 max-w-sm text-sm leading-relaxed text-papel/60">Pagos, revisión, aprobación y entrega del PDF en un solo lugar.</p>
+          </div>
+          <div className="text-xs tracking-[.3em] text-papel/40">PANEL EDITORIAL</div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-center bg-marfil px-6 py-16">
+        <form onSubmit={validarClave} className="w-full max-w-sm">
+          <div className="mb-10 font-romana text-sm tracking-[.5em] text-tinta lg:hidden">ASTREA</div>
+          <h1 className="font-display text-4xl text-tinta">Entrar al panel</h1>
+          <p className="mt-2 text-sm text-tinta-suave">Usa la clave de administrador. No se guarda en este navegador.</p>
+          <label htmlFor="clave" className="mt-8 mb-1.5 block text-xs font-medium uppercase tracking-wider text-tinta-suave">Clave</label>
+          <input
+            id="clave"
+            type="password"
+            value={clave}
+            onChange={(e) => setClave(e.target.value)}
+            className="h-11 w-full rounded-lg bg-papel px-3.5 text-tinta ring-1 ring-linea-fuerte outline-none transition focus:ring-2 focus:ring-oro"
+            autoFocus
+            autoComplete="current-password"
+          />
+          {error && <p className="mt-2 text-sm text-vino">{error}</p>}
+          <Boton type="submit" variante="primario" tamano="lg" cargando={validando} disabled={!clave} className="mt-5 w-full">
+            {validando ? 'Verificando…' : 'Entrar'}
+          </Boton>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 export default PanelAdmin
