@@ -117,6 +117,7 @@ function DetalleCarta({ claveAdmin, cartaId, onVolver }) {
 
       if (endpoint === 'aprobar') {
         setLinkAprobado(resultado.link)
+        cargarDetalle()
       } else {
         setMensajeAccion(resultado.mensaje || resultado.status)
         cargarDetalle()
@@ -330,17 +331,34 @@ function DetalleCarta({ claveAdmin, cartaId, onVolver }) {
         <p className="text-sm text-[#5C5346] mb-4">{mensajeAccion}</p>
       )}
 
-      {linkAprobado ? (
-        <div className="bg-[#EDE6D3] rounded-lg p-5">
-          <p className="text-[#2B2620] mb-2">✓ Aprobado. Link listo para enviar:</p>
-          <a
-            href={linkAprobado}
-            target="_blank"
-            rel="noreferrer"
-            className="text-[#3D5A6C] underline break-all text-sm"
-          >
-            {linkAprobado}
-          </a>
+      {/* Dos pasos distintos: Aprobar (revision) y Enviar (PDF adjunto por correo). */}
+      {linkAprobado || detalle.enviado ? (
+        <div className="space-y-3">
+          <p className="text-sm text-[#2B2620]">✓ Lectura aprobada.</p>
+          {detalle.reembolsado ? (
+            <p className="text-sm text-[#8B3A3A]">Orden reembolsada: no se envía.</p>
+          ) : detalle.fecha_correo_entrega ? (
+            <div className="bg-[#EDE6D3] rounded-lg p-4 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-[#2B2620]">
+                ✓ Enviada por correo a {detalle.email} el {new Date(detalle.fecha_correo_entrega).toLocaleString('es')}.
+              </p>
+              <button
+                onClick={() => window.confirm(`¿Reenviar la lectura en PDF a ${detalle.email}?`) && llamarAccion('enviar-lectura', { reenviar: true })}
+                disabled={accionEnCurso === 'enviar-lectura'}
+                className="border border-[#2B2620] text-[#2B2620] rounded-lg px-4 py-2 text-sm disabled:opacity-50"
+              >
+                {accionEnCurso === 'enviar-lectura' ? 'Reenviando...' : 'Reenviar'}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => window.confirm(`¿Enviar la lectura en PDF a ${detalle.email}?`) && llamarAccion('enviar-lectura', {})}
+              disabled={accionEnCurso === 'enviar-lectura'}
+              className="w-full bg-[#8B6F47] text-[#F7F3E9] rounded-lg py-3 font-medium disabled:opacity-50"
+            >
+              {accionEnCurso === 'enviar-lectura' ? 'Generando PDF y enviando...' : 'Enviar al cliente (PDF adjunto)'}
+            </button>
+          )}
         </div>
       ) : (
         <button
@@ -348,7 +366,7 @@ function DetalleCarta({ claveAdmin, cartaId, onVolver }) {
           disabled={accionEnCurso === 'aprobar'}
           className="w-full bg-[#2B2620] text-[#F7F3E9] rounded-lg py-3 font-medium disabled:opacity-50"
         >
-          {accionEnCurso === 'aprobar' ? 'Aprobando...' : 'Aprobar y generar link'}
+          {accionEnCurso === 'aprobar' ? 'Aprobando...' : 'Aprobar lectura'}
         </button>
       )}
     </div>

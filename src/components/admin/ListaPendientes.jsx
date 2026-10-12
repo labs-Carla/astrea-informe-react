@@ -22,7 +22,7 @@ function formatearFechaHora(isoString) {
 const PESTANAS = [
   { id: 'esperando-pago', etiqueta: 'Esperando pago', vacia: 'No hay órdenes esperando pago.' },
   { id: 'pendientes', etiqueta: 'Pendientes', vacia: 'No hay cartas pendientes.' },
-  { id: 'enviadas', etiqueta: 'Enviadas', vacia: 'Aún no hay cartas enviadas.' },
+  { id: 'enviadas', etiqueta: 'Aprobadas', vacia: 'Aún no hay cartas aprobadas.' },
   { id: 'otros-reportes', etiqueta: 'Otros reportes', vacia: '' },
 ]
 
@@ -195,7 +195,10 @@ function ListaPendientes({ claveAdmin }) {
                       </>
                     ) : (
                       <>
-                        <div>Enviado: {formatearFechaHora(carta.fecha_envio)}</div>
+                        <div>Aprobada: {formatearFechaHora(carta.fecha_envio)}</div>
+                        <div className={carta.fecha_correo_entrega ? '' : 'text-[#8B6F47] font-medium'}>
+                          {carta.fecha_correo_entrega ? `PDF enviado: ${formatearFechaHora(carta.fecha_correo_entrega)}` : 'PDF sin enviar por correo'}
+                        </div>
                         {carta.reembolsado && (
                           <div className="text-[#8B3A3A]">Reembolsado: {formatearFechaHora(carta.fecha_reembolso)}</div>
                         )}
