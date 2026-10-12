@@ -235,7 +235,7 @@ function DetalleCarta({ claveAdmin, cartaId, onVolver }) {
       <h1 className="font-serif text-2xl text-[#2B2620] mb-2">Carta #{cartaId}</h1>
       {detalle.reembolsado && (
         <p className="inline-block text-xs font-medium text-[#8B3A3A] border border-[#8B3A3A] rounded px-2 py-0.5 mb-2">
-          Reembolsado: no da preguntas en Astrea.ai
+          Reembolsado
         </p>
       )}
       {detalle.ciudad && (

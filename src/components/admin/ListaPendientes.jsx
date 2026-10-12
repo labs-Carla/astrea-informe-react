@@ -70,8 +70,7 @@ function ListaPendientes({ claveAdmin }) {
   async function registrarReembolso(carta) {
     const ok = window.confirm(
       `¿Registrar el reembolso de ${carta.nombre_reporte || carta.email}?\n` +
-        `Hazlo solo si ya se reembolsó en Hotmart. El enlace del informe sigue funcionando; ` +
-        `en Astrea.ai la compra deja de dar sus 5 preguntas.`
+        `Hazlo solo si ya se reembolsó en Hotmart. El enlace del informe sigue funcionando.`
     )
     if (!ok) return
 
