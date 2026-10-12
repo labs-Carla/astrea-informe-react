@@ -1,25 +1,27 @@
 import { useState } from 'react'
 import { URL_LECTURA } from './api'
 import { Boton, BotonCopiar, Esqueleto, Icono, Insignia, Tarjeta, Vacio } from './ui'
-import { coincide, fechaHora, haceCuanto, horasDesde, lugar, nacimiento } from './formato'
+import { coincide, entrega, fechaHora, haceCuanto, horasDesde, lugar, nacimiento } from './formato'
 
 const VACIOS = {
-  'esperando-pago': ['Sin órdenes esperando pago', 'Cuando alguien cargue sus datos en la tienda y vaya a Hotmart, aparecerá aquí.'],
-  pendientes: ['Nada por revisar', 'Las cartas pagadas aparecen aquí para generar, revisar y aprobar.'],
-  aprobadas: ['Aún no hay lecturas aprobadas', ''],
+  'esperando-pago': ['No hay pagos por confirmar', 'Cuando alguien cargue sus datos en la tienda y pase a Hotmart, aparecerá aquí.'],
+  pendientes: ['Nada por revisar', 'Las cartas natales pagadas aparecen aquí para generar el texto, revisarlo y aprobarlo.'],
+  aprobadas: ['Aún no hay entregas', 'Las cartas natales aprobadas aparecen aquí.'],
 }
 
 const FILTROS_APROBADAS = [
   { id: 'todas', etiqueta: 'Todas', incluye: () => true },
-  { id: 'sin-pdf', etiqueta: 'PDF por enviar', incluye: (c) => !c.fecha_correo_entrega && !c.reembolsado },
-  { id: 'entregadas', etiqueta: 'Entregadas', incluye: (c) => c.fecha_correo_entrega && !c.reembolsado },
+  { id: 'sin-pdf', etiqueta: 'Listas para enviar', incluye: (c) => entrega(c).estado === 'por-enviar' },
+  { id: 'entregadas', etiqueta: 'Entregadas', incluye: (c) => ['correo', 'a-mano'].includes(entrega(c).estado) },
   { id: 'reembolsadas', etiqueta: 'Reembolsadas', incluye: (c) => c.reembolsado },
 ]
 
 export function EstadoPdf({ carta }) {
-  if (carta.reembolsado) return <Insignia tono="rojo" punto>Reembolsada</Insignia>
-  if (carta.fecha_correo_entrega) return <Insignia tono="verde" punto>PDF enviado</Insignia>
-  return <Insignia tono="azul" punto>PDF por enviar</Insignia>
+  const { estado } = entrega(carta)
+  if (estado === 'reembolsada') return <Insignia tono="rojo" punto>Reembolsada</Insignia>
+  if (estado === 'correo') return <Insignia tono="verde" punto>PDF enviado por correo</Insignia>
+  if (estado === 'a-mano') return <Insignia tono="verde" punto>Entregada a mano</Insignia>
+  return <Insignia tono="azul" punto>Lista para enviar</Insignia>
 }
 
 function Cliente({ carta }) {
@@ -57,11 +59,11 @@ function columnas(tipo, acciones) {
   if (tipo === 'esperando-pago') {
     return [
       cliente,
-      { titulo: 'Código Hotmart', celda: (c) => (
+      { titulo: 'Código en Hotmart', celda: (c) => (
         <span className="inline-flex items-center gap-1 font-mono text-xs text-tinta-suave">astrea-orden-{c.id}<BotonCopiar texto={`astrea-orden-${c.id}`} etiqueta="Copiar código" /></span>
       ) },
       nac,
-      { titulo: 'Solicitada', celda: (c) => <Antiguedad iso={c.fecha_solicitud_compra} /> },
+      { titulo: 'Pedido', celda: (c) => <Antiguedad iso={c.fecha_solicitud_compra} /> },
       { titulo: '', clase: 'text-right', celda: (c) => (
         <Boton variante="primario" tamano="sm" cargando={acciones.enCurso === `pago:${c.id}`}
           onClick={(e) => { e.stopPropagation(); acciones.confirmarPago(c) }}>Confirmar pago</Boton>
@@ -72,7 +74,7 @@ function columnas(tipo, acciones) {
     return [
       cliente,
       nac,
-      { titulo: 'Compró', celda: (c) => <Antiguedad iso={c.fecha_solicitud_compra || c.fecha_generacion} /> },
+      { titulo: 'Pedido', celda: (c) => <Antiguedad iso={c.fecha_solicitud_compra || c.fecha_generacion} /> },
       { titulo: 'Estado', celda: () => <Insignia tono="oro" punto>Por revisar</Insignia>, clase: 'hidden md:table-cell' },
       { titulo: '', clase: 'text-right', celda: () => (
         <span className="inline-flex items-center gap-1 text-sm font-medium text-oro">Revisar <Icono nombre="flecha" /></span>
@@ -82,11 +84,11 @@ function columnas(tipo, acciones) {
   return [
     cliente,
     { titulo: 'Aprobada', celda: (c) => <div title={fechaHora(c.fecha_envio)}><div className="text-tinta">{fechaHora(c.fecha_envio)}</div></div>, clase: 'hidden lg:table-cell' },
-    { titulo: 'Correo con PDF', celda: (c) => (
+    { titulo: 'Entrega', celda: (c) => (
       <div className="space-y-1"><EstadoPdf carta={c} />
-        {c.fecha_correo_entrega && <div className="text-xs text-tinta-tenue">{fechaHora(c.fecha_correo_entrega)}</div>}</div>
+        {entrega(c).estado === 'correo' && <div className="text-xs text-tinta-tenue">{fechaHora(c.fecha_correo_entrega)}</div>}</div>
     ) },
-    { titulo: 'Lectura web', clase: 'hidden xl:table-cell', celda: (c) => c.token && (
+    { titulo: 'Enlace web', clase: 'hidden xl:table-cell', celda: (c) => c.token && (
       <span className="inline-flex items-center gap-1 text-xs">
         <a href={`${URL_LECTURA}${c.token}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center gap-1 text-oro hover:underline">Abrir <Icono nombre="externo" className="size-3.5" /></a>
@@ -95,12 +97,12 @@ function columnas(tipo, acciones) {
     ) },
     { titulo: '', clase: 'text-right', celda: (c) => !c.reembolsado && (
       <Boton variante="fantasma" tamano="sm" cargando={acciones.enCurso === `reembolso:${c.id}`}
-        onClick={(e) => { e.stopPropagation(); acciones.reembolsar(c) }} className="text-vino hover:text-vino">Reembolso</Boton>
+        onClick={(e) => { e.stopPropagation(); acciones.reembolsar(c) }} className="text-vino hover:text-vino">Registrar reembolso</Boton>
     ) },
   ]
 }
 
-/** Tabla de cartas de una sección (esperando pago, por revisar o aprobadas). */
+/** Tabla de cartas de una sección (pagos por confirmar, por revisar o entregas). */
 function TablaCartas({ tipo, cartas, busqueda, acciones, abrirCarta }) {
   const [filtro, setFiltro] = useState('todas')
   const cols = columnas(tipo, acciones)
@@ -114,8 +116,8 @@ function TablaCartas({ tipo, cartas, busqueda, acciones, abrirCarta }) {
     <div className="space-y-4">
       {tipo === 'esperando-pago' && (
         <p className="max-w-3xl text-sm leading-relaxed text-tinta-suave">
-          Estas personas llenaron sus datos y fueron enviadas a Hotmart. Cuando veas la venta (mismo correo o código
-          <span className="font-mono text-xs"> astrea-orden-ID</span>), confirma el pago para pasarla a «Por revisar».
+          Estas personas cargaron sus datos y pasaron a Hotmart. Cuando veas la venta (mismo correo o código
+          <span className="font-mono text-xs"> astrea-orden-ID</span>), confirma el pago y el pedido pasará a «Por revisar».
         </p>
       )}
       {tipo === 'aprobadas' && (
@@ -137,7 +139,7 @@ function TablaCartas({ tipo, cartas, busqueda, acciones, abrirCarta }) {
           <div className="space-y-3 p-5">{[0, 1, 2, 3].map((i) => <Esqueleto key={i} className="h-12" />)}</div>
         ) : visibles.length === 0 ? (
           busqueda || filtro !== 'todas'
-            ? <Vacio titulo="Sin resultados" texto="Prueba con otro nombre, correo o filtro." />
+            ? <Vacio titulo="Sin resultados" texto="Prueba con otro nombre, correo, número o filtro." />
             : <Vacio titulo={VACIOS[tipo][0]} texto={VACIOS[tipo][1]} />
         ) : (
           <>

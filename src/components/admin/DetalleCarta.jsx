@@ -3,7 +3,7 @@ import { URL_LECTURA } from './api'
 import { EstadoPdf } from './TablaCartas'
 import { Boton, BotonCopiar, Esqueleto, Icono, Insignia, Paso } from './ui'
 import { useAviso, useConfirmar } from './contextos'
-import { fechaHora, lugar } from './formato'
+import { entrega, fechaHora, lugar } from './formato'
 
 const PLANETAS = [
   ['sol', 'Sol'], ['luna', 'Luna'], ['mercurio', 'Mercurio'], ['venus', 'Venus'], ['marte', 'Marte'],
@@ -119,7 +119,7 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
     if (existe) {
       const ok = await confirmar({
         titulo: `¿Regenerar ${bloque.titulo.toLowerCase()}?`,
-        texto: <p>Se reemplaza el texto actual por uno nuevo (es otra llamada a Claude). Revísalo antes de aprobar.</p>,
+        texto: <p>Se reemplaza el texto actual por uno nuevo (es otra llamada a la IA, con costo). Revísalo antes de aprobar.</p>,
         accion: 'Regenerar',
       })
       if (!ok) return
@@ -130,18 +130,22 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
   async function aprobar() {
     const ok = await confirmar({
       titulo: '¿Aprobar esta lectura?',
-      texto: <p>Queda lista para enviar y se crea su enlace web. <b>No se envía ningún correo todavía</b>: eso es el paso «Enviar al cliente».</p>,
+      texto: <p>Queda lista para enviar y se crea su enlace web. <b>Todavía no se envía ningún correo</b>: eso lo hace el botón «Enviar al cliente».</p>,
       accion: 'Aprobar lectura',
     })
     if (ok) await accion('aprobar', {}, 'Lectura aprobada. Ya puedes enviarla.')
   }
 
   async function enviar(reenviar) {
+    const aMano = estadoEntrega === 'a-mano'
     const ok = await confirmar({
-      titulo: reenviar ? '¿Reenviar la lectura?' : '¿Enviar la lectura al cliente?',
+      titulo: reenviar ? '¿Reenviar el PDF?' : aMano ? '¿Enviarle también el PDF?' : '¿Enviar la lectura al cliente?',
       texto: (
-        <p>Se genera el PDF y se envía adjunto a <b>{detalle.email}</b> con el correo «Tu lectura está lista».
-          {reenviar && ' La persona recibirá un segundo correo.'}</p>
+        <p>
+          {aMano && 'Esta lectura ya se entregó a mano. '}
+          Se arma el PDF con el texto aprobado y se envía adjunto a <b>{detalle.email}</b> con el correo «Tu lectura está lista».
+          {(reenviar || aMano) && ' La persona recibirá un correo nuevo.'}
+        </p>
       ),
       accion: reenviar ? 'Reenviar' : 'Enviar ahora',
       variante: 'oro',
@@ -167,7 +171,9 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
   }
 
   const aprobada = Boolean(detalle?.enviado)
-  const enviada = Boolean(detalle?.fecha_correo_entrega)
+  const estadoEntrega = detalle && !detalle.sinInterpretacion ? entrega(detalle).estado : 'por-enviar'
+  const enviada = estadoEntrega === 'correo'
+  const entregada = enviada || estadoEntrega === 'a-mano'
   const estados = Object.fromEntries(BLOQUES.map((b) => [b.id, estadoBloque(detalle, b.id)]))
   const faltan = BLOQUES.filter((b) => estados[b.id] !== 'listo')
   const bloque = BLOQUES.find((b) => b.id === pestana)
@@ -175,10 +181,10 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
   const pasos = [
     ['Pagada', true],
     ['Interpretación', estados.interpretacion === 'listo'],
-    ['Áreas', estados.areas_de_vida === 'listo'],
+    ['Áreas de vida', estados.areas_de_vida === 'listo'],
     ['Tránsitos', estados.transitos === 'listo'],
     ['Aprobada', aprobada],
-    ['PDF enviado', enviada],
+    ['Entregada', entregada],
   ]
   const primerPendiente = pasos.findIndex(([, hecho]) => !hecho)
 
@@ -229,7 +235,7 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
             <div className="space-y-6">
               <div className="flex flex-wrap items-end gap-4">
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-tinta-tenue">Género (concordancia del texto)</span>
+                  <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-tinta-tenue">Género (para la concordancia del texto)</span>
                   <select value={genero} onChange={(e) => setGenero(e.target.value)}
                     className="h-9 rounded-lg bg-papel px-3 text-sm ring-1 ring-linea-fuerte outline-none focus:ring-2 focus:ring-oro">
                     <option value="">No especificar</option>
@@ -237,11 +243,11 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
                     <option value="masculino">Masculino</option>
                   </select>
                 </label>
-                <Boton icono="externo" onClick={vistaPrevia} cargando={enCurso === 'vista-previa'}>Vista previa del libro</Boton>
+                <Boton icono="externo" onClick={vistaPrevia} cargando={enCurso === 'vista-previa'}>Ver vista previa del PDF</Boton>
                 {resumenLista?.token && (
                   <a href={`${URL_LECTURA}${resumenLista.token}`} target="_blank" rel="noreferrer"
                     className="inline-flex h-9 items-center gap-1.5 text-sm text-oro hover:underline">
-                    Lectura web <Icono nombre="externo" className="size-3.5" />
+                    Ver enlace web <Icono nombre="externo" className="size-3.5" />
                   </a>
                 )}
               </div>
@@ -262,7 +268,7 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
                 <div className="p-5">
                   <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                     {estados[bloque.id] === 'listo' && <Insignia tono="verde" punto>Generada</Insignia>}
-                    {estados[bloque.id] === 'error' && <Insignia tono="rojo" punto>Error de formato: regenérala</Insignia>}
+                    {estados[bloque.id] === 'error' && <Insignia tono="rojo" punto>Salió con errores: regenérala</Insignia>}
                     {estados[bloque.id] === 'falta' && <Insignia punto>Aún no generada</Insignia>}
                     <Boton variante={estados[bloque.id] === 'listo' ? 'borde' : 'primario'} tamano="sm"
                       cargando={enCurso === bloque.endpoint}
@@ -284,7 +290,7 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-tinta-tenue">El texto aparecerá aquí para revisarlo antes de aprobar.</p>
+                    <p className="text-sm text-tinta-tenue">Aquí aparecerá el texto para revisarlo antes de aprobar.</p>
                   )}
                 </div>
               </div>
@@ -295,23 +301,24 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
         {detalle && (
           <footer className="border-t border-linea bg-papel px-6 py-4">
             {detalle.reembolsado ? (
-              <p className="text-sm text-vino">Orden reembolsada: no se envía.</p>
+              <p className="text-sm text-vino">Pedido reembolsado: no se envía.</p>
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="flex-1 text-sm text-tinta-suave">
                   {!aprobada && (faltan.length
-                    ? `Falta: ${faltan.map((b) => b.titulo.toLowerCase()).join(', ')}.`
-                    : 'Todo generado. Revisa el texto y aprueba.')}
-                  {aprobada && !enviada && 'Aprobada. Falta enviar el PDF por correo.'}
-                  {enviada && `PDF enviado el ${fechaHora(detalle.fecha_correo_entrega)}.`}
+                    ? `Falta generar: ${faltan.map((b) => b.titulo.toLowerCase()).join(', ')}.`
+                    : 'Todo está generado. Revisa el texto y apruébalo.')}
+                  {aprobada && !entregada && 'Aprobada. Falta enviarle el PDF por correo.'}
+                  {estadoEntrega === 'a-mano' && `Entregada a mano (aprobada el ${fechaHora(detalle.fecha_envio)}). Si quieres, también puedes enviarle el PDF.`}
+                  {enviada && `PDF enviado por correo el ${fechaHora(detalle.fecha_correo_entrega)}.`}
                 </div>
                 <Boton variante={aprobada ? 'borde' : 'primario'} tamano="lg" icono={aprobada ? 'check' : undefined}
                   disabled={aprobada || estados.interpretacion !== 'listo'} cargando={enCurso === 'aprobar'} onClick={aprobar}>
                   {aprobada ? 'Aprobada' : 'Aprobar lectura'}
                 </Boton>
-                <Boton variante={enviada ? 'borde' : 'oro'} tamano="lg" icono="enviar" disabled={!aprobada}
+                <Boton variante={entregada ? 'borde' : 'oro'} tamano="lg" icono="enviar" disabled={!aprobada}
                   cargando={enCurso === 'enviar-lectura'} onClick={() => enviar(enviada)}>
-                  {enCurso === 'enviar-lectura' ? 'Generando PDF y enviando…' : enviada ? 'Reenviar' : 'Enviar al cliente'}
+                  {enCurso === 'enviar-lectura' ? 'Armando el PDF y enviando…' : enviada ? 'Reenviar PDF' : estadoEntrega === 'a-mano' ? 'Enviar PDF por correo' : 'Enviar al cliente'}
                 </Boton>
               </div>
             )}

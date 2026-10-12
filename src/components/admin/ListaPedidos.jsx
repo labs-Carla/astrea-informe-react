@@ -3,15 +3,15 @@ import { Boton, BotonCopiar, Esqueleto, Insignia, Tarjeta, Vacio } from './ui'
 import { ESTADOS_REPORTE, coincide, fechaHora, haceCuanto, horasDesde, lugar, nacimiento } from './formato'
 
 const ESTADOS = {
-  pendiente: { etiqueta: 'Esperando pago', tono: 'ambar' },
-  confirmado: { etiqueta: 'Pagado · por enviar', tono: 'azul' },
-  enviado: { etiqueta: 'Enviado', tono: 'verde' },
+  pendiente: { etiqueta: 'Pago por confirmar', tono: 'ambar' },
+  confirmado: { etiqueta: 'Pagado, por preparar', tono: 'azul' },
+  enviado: { etiqueta: 'Entregado', tono: 'verde' },
   reembolsado: { etiqueta: 'Reembolsado', tono: 'rojo' },
 }
 
 const FILTROS = [
   { id: 'activos', etiqueta: 'Por atender', incluye: ['pendiente', 'confirmado'] },
-  { id: 'enviado', etiqueta: 'Enviados', incluye: ['enviado'] },
+  { id: 'enviado', etiqueta: 'Entregados', incluye: ['enviado'] },
   { id: 'reembolsado', etiqueta: 'Reembolsados', incluye: ['reembolsado'] },
   { id: 'todos', etiqueta: 'Todos', incluye: null },
 ]
@@ -34,7 +34,7 @@ function fechaClave(p) {
   return {
     pendiente: ['Pedido', p.fecha_solicitud_compra],
     confirmado: ['Pagado', p.fecha_confirmacion_pago],
-    enviado: ['Enviado', p.fecha_envio],
+    enviado: ['Entregado', p.fecha_envio],
     reembolsado: ['Reembolsado', p.fecha_reembolso],
   }[p.estado] || ['Pedido', p.fecha_solicitud_compra]
 }
@@ -72,7 +72,7 @@ function ListaPedidos({ pedidos, busqueda, acciones, abrirPedido }) {
         )}
         {(p.estado === 'confirmado' || p.estado === 'enviado') && (
           <Boton variante="fantasma" tamano="sm" className="text-vino hover:text-vino" cargando={ocupado('reembolsar')}
-            onClick={() => acciones.pedido(p, 'reembolsar')}>Reembolso</Boton>
+            onClick={() => acciones.pedido(p, 'reembolsar')}>Registrar reembolso</Boton>
         )}
       </div>
     )
@@ -81,8 +81,8 @@ function ListaPedidos({ pedidos, busqueda, acciones, abrirPedido }) {
   return (
     <div className="space-y-4">
       <p className="max-w-3xl text-sm leading-relaxed text-tinta-suave">
-        Confirma el pago en Hotmart (busca el código). Amor, vocación, dinero y patrones se generan, revisan y envían desde aquí;
-        revolución solar y compatibilidad todavía se preparan a mano: envía el PDF por correo y márcalo como enviado.
+        Primero confirma el pago en Hotmart (busca el código). Amor, vocación, dinero y patrones se generan, revisan y envían
+        desde aquí. Revolución solar y compatibilidad todavía se preparan a mano: envía el PDF por correo y luego toca «Marcar enviado».
       </p>
       <div className="flex flex-wrap gap-2">
         {FILTROS.map((f) => {
@@ -100,7 +100,7 @@ function ListaPedidos({ pedidos, busqueda, acciones, abrirPedido }) {
         {!pedidos ? (
           <div className="space-y-3 p-5">{[0, 1, 2].map((i) => <Esqueleto key={i} className="h-14" />)}</div>
         ) : visibles.length === 0 ? (
-          <Vacio titulo={busqueda ? 'Sin resultados' : 'No hay pedidos aquí'} texto={busqueda ? 'Prueba con otro nombre, correo o código.' : ''} />
+          <Vacio titulo={busqueda ? 'Sin resultados' : 'No hay pedidos aquí'} texto={busqueda ? 'Prueba con otro nombre, correo o código.' : 'Cambia el filtro para ver los demás.'} />
         ) : (
           <ul className="divide-y divide-linea">
             {visibles.map((p) => {
@@ -135,7 +135,7 @@ function ListaPedidos({ pedidos, busqueda, acciones, abrirPedido }) {
                     <div className={demorado ? 'font-medium text-ambar' : ''} title={fechaHora(fecha)}>
                       {etiquetaFecha} {haceCuanto(fecha)}
                     </div>
-                    <div>Carta calculada #{p.carta_id}</div>
+                    <div>Carta n.º {p.carta_id}</div>
                   </div>
                   {botones(p)}
                 </li>

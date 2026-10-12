@@ -7,26 +7,26 @@ import Resumen from './Resumen'
 import TablaCartas from './TablaCartas'
 import { Boton, Icono } from './ui'
 import { useAviso, useConfirmar } from './contextos'
-import { haceCuanto } from './formato'
+import { entrega, haceCuanto } from './formato'
 
 /** Secciones del panel. `fuente` es la clave de `datos` que alimenta el contador. */
 const SECCIONES = [
-  { id: 'resumen', etiqueta: 'Resumen', icono: 'resumen', titulo: 'Resumen', bajada: 'Lo que pide atención hoy' },
-  { id: 'esperando-pago', etiqueta: 'Esperando pago', icono: 'pago', fuente: 'esperando',
-    titulo: 'Esperando pago', bajada: 'Datos cargados en la tienda; falta cruzar la venta en Hotmart' },
+  { id: 'resumen', etiqueta: 'Resumen', icono: 'resumen', titulo: 'Resumen', bajada: 'Lo que necesita tu atención hoy' },
+  { id: 'esperando-pago', etiqueta: 'Pagos por confirmar', icono: 'pago', fuente: 'esperando',
+    titulo: 'Pagos por confirmar', bajada: 'Pedidos de carta natal con los datos cargados: confírmalos cuando veas la venta en Hotmart' },
   { id: 'pendientes', etiqueta: 'Por revisar', icono: 'revisar', fuente: 'pendientes',
-    titulo: 'Por revisar', bajada: 'Pagadas: genera, revisa y aprueba cada lectura' },
-  { id: 'aprobadas', etiqueta: 'Aprobadas', icono: 'aprobadas', fuente: 'aprobadas',
-    titulo: 'Aprobadas', bajada: 'Lecturas aprobadas y estado del PDF enviado por correo' },
+    titulo: 'Por revisar', bajada: 'Cartas natales pagadas: genera el texto, revísalo y apruébalo' },
+  { id: 'aprobadas', etiqueta: 'Entregas', icono: 'aprobadas', fuente: 'aprobadas',
+    titulo: 'Entregas', bajada: 'Cartas natales aprobadas: envía el PDF o consulta cuándo se entregó' },
   { id: 'pedidos', etiqueta: 'Otros reportes', icono: 'pedidos', fuente: 'pedidos',
-    titulo: 'Otros reportes', bajada: 'Amor, vocación, dinero, revolución solar, compatibilidad…' },
+    titulo: 'Otros reportes', bajada: 'Amor, vocación, dinero, patrones, revolución solar y compatibilidad' },
 ]
 
 /** Cuántos elementos de cada fuente piden acción (para el contador de la barra lateral). */
 function porAtender(datos, fuente) {
   const lista = datos[fuente]
   if (!lista) return null
-  if (fuente === 'aprobadas') return lista.filter((c) => !c.fecha_correo_entrega && !c.reembolsado).length
+  if (fuente === 'aprobadas') return lista.filter((c) => entrega(c).estado === 'por-enviar').length
   if (fuente === 'pedidos') return lista.filter((p) => p.estado === 'pendiente' || p.estado === 'confirmado').length
   return lista.length
 }
@@ -137,19 +137,19 @@ function Escritorio({ clave, onSalir }) {
         texto: (
           <>
             <p>Confirma solo si ya viste la venta de <b>{carta.nombre_reporte || carta.email}</b> en Hotmart.</p>
-            <p>Búscala por <b>{carta.email}</b> o por el código <b>astrea-orden-{carta.id}</b>. La orden pasa a «Por revisar».</p>
+            <p>Búscala por <b>{carta.email}</b> o por el código <b>astrea-orden-{carta.id}</b>. El pedido pasará a «Por revisar».</p>
           </>
         ),
         accion: 'Confirmar pago',
       })
-      if (ok) await ejecutar(`pago:${carta.id}`, () => api.post(`/admin/confirmar-pago/${carta.id}`), 'Pago confirmado. La orden pasó a Por revisar.')
+      if (ok) await ejecutar(`pago:${carta.id}`, () => api.post(`/admin/confirmar-pago/${carta.id}`), 'Pago confirmado. El pedido pasó a «Por revisar».')
     },
     async reembolsar(carta) {
       const ok = await confirmar({
         titulo: '¿Registrar el reembolso?',
         texto: (
           <>
-            <p>Hazlo solo si ya reembolsaste a <b>{carta.nombre_reporte || carta.email}</b> en Hotmart.</p>
+            <p>Hazlo solo si ya le devolviste el dinero a <b>{carta.nombre_reporte || carta.email}</b> en Hotmart.</p>
             <p>El enlace de la lectura sigue funcionando.</p>
           </>
         ),
@@ -166,13 +166,13 @@ function Escritorio({ clave, onSalir }) {
           accion: 'Confirmar pago', exito: 'Pago confirmado.',
         },
         'marcar-enviado': {
-          titulo: '¿Marcar como enviado?',
-          texto: <p>¿Ya enviaste <b>{pedido.producto_nombre}</b> a <b>{pedido.email}</b> por correo?</p>,
-          accion: 'Marcar enviado', exito: 'Pedido marcado como enviado.',
+          titulo: '¿Marcar como entregado?',
+          texto: <p>¿Ya le enviaste <b>{pedido.producto_nombre}</b> a <b>{pedido.email}</b> por correo? Esto solo lo registra; no envía nada.</p>,
+          accion: 'Marcar enviado', exito: 'Pedido marcado como entregado.',
         },
         reembolsar: {
           titulo: '¿Registrar el reembolso?',
-          texto: <p>Registra el reembolso de <b>{pedido.producto_nombre}</b> de <b>{pedido.email}</b> solo si ya se hizo en Hotmart.</p>,
+          texto: <p>Registra el reembolso de <b>{pedido.producto_nombre}</b> de <b>{pedido.email}</b> solo si ya devolviste el dinero en Hotmart.</p>,
           accion: 'Registrar reembolso', variante: 'peligro', exito: 'Reembolso registrado.',
         },
       }[accion]
@@ -211,7 +211,7 @@ function Escritorio({ clave, onSalir }) {
     <div className="flex h-full flex-col bg-noche px-4 py-6">
       <div className="px-3">
         <div className="font-romana text-[13px] tracking-[.5em] text-papel">ASTREA</div>
-        <div className="mt-1 text-[11px] tracking-[.25em] text-oro-claro/80">PANEL EDITORIAL</div>
+        <div className="mt-1 text-[11px] tracking-[.25em] text-oro-claro/80">PANEL DE LECTURAS</div>
       </div>
       <div className="mt-8 flex-1">{navegacion}</div>
       <div className="space-y-3 border-t border-white/10 px-3 pt-4">
@@ -251,7 +251,7 @@ function Escritorio({ clave, onSalir }) {
               <label className="relative hidden md:block">
                 <span className="sr-only">Buscar</span>
                 <Icono nombre="buscar" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-tinta-tenue" />
-                <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar nombre, correo o #"
+                <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre, correo o número"
                   className="h-9 w-72 rounded-lg bg-papel pl-9 pr-3 text-sm ring-1 ring-linea outline-none placeholder:text-tinta-tenue focus:ring-2 focus:ring-oro" />
               </label>
             )}
@@ -261,7 +261,7 @@ function Escritorio({ clave, onSalir }) {
           </div>
           {seccion !== 'resumen' && (
             <div className="px-4 pb-3 md:hidden">
-              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar nombre, correo o #"
+              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre, correo o número"
                 className="h-9 w-full rounded-lg bg-papel px-3 text-sm ring-1 ring-linea outline-none focus:ring-2 focus:ring-oro" />
             </div>
           )}
@@ -271,7 +271,7 @@ function Escritorio({ clave, onSalir }) {
           {Object.keys(errores).length > 0 && (
             <div className="mb-6 flex items-start gap-2 rounded-lg bg-[#fbeeec] px-4 py-3 text-sm text-vino ring-1 ring-vino/20">
               <Icono nombre="alerta" className="mt-0.5 shrink-0" />
-              <span>No se pudo cargar todo: {Object.values(errores)[0]} Los datos visibles pueden estar incompletos.</span>
+              <span>No se pudo cargar todo: {Object.values(errores)[0]} Lo que ves puede estar incompleto.</span>
             </div>
           )}
 

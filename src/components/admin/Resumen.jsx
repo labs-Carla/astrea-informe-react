@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Esqueleto, Icono, Insignia, Tarjeta, Vacio } from './ui'
-import { fechaHora, fechaLarga, haceCuanto, horasDesde, saludo } from './formato'
+import { entrega, fechaHora, fechaLarga, haceCuanto, horasDesde, saludo } from './formato'
 
 /** Una orden o pedido que lleva más de esto sin atenderse se marca como demorado. */
 const HORAS_DEMORA = 24
@@ -61,12 +61,12 @@ function Resumen({ datos, ahora, cargando, irA, abrirCarta, abrirPedido }) {
   const { esperando = [], pendientes = [], aprobadas = [], pedidos = [] } = datos
 
   const resumen = useMemo(() => {
-    const sinPdf = aprobadas.filter((c) => !c.fecha_correo_entrega && !c.reembolsado)
-    const conPdf = aprobadas.filter((c) => c.fecha_correo_entrega && !c.reembolsado)
+    const sinPdf = aprobadas.filter((c) => entrega(c).estado === 'por-enviar')
+    const conPdf = aprobadas.filter((c) => ['correo', 'a-mano'].includes(entrega(c).estado))
     const pedidosPago = pedidos.filter((p) => p.estado === 'pendiente')
     const pedidosEnvio = pedidos.filter((p) => p.estado === 'confirmado')
     const hace30 = (ahora || 0) - 30 * 86400000
-    const entregadasMes = conPdf.filter((c) => new Date(c.fecha_correo_entrega).getTime() > hace30).length
+    const entregadasMes = conPdf.filter((c) => new Date(entrega(c).fecha).getTime() > hace30).length
       + pedidos.filter((p) => p.estado === 'enviado' && new Date(p.fecha_envio).getTime() > hace30).length
     const reembolsos = aprobadas.filter((c) => c.reembolsado).length + pedidos.filter((p) => p.estado === 'reembolsado').length
 
@@ -84,18 +84,20 @@ function Resumen({ datos, ahora, cargando, irA, abrirCarta, abrirPedido }) {
     ].sort((a, b) => new Date(a.desde || 0) - new Date(b.desde || 0))
 
     const actividad = [
-      ...esperando.map((c) => ({ fecha: c.fecha_solicitud_compra, texto: 'cargó sus datos y fue a pagar', nombre: c.nombre_reporte })),
+      ...esperando.map((c) => ({ fecha: c.fecha_solicitud_compra, texto: 'pidió su carta natal (pago por confirmar)', nombre: c.nombre_reporte })),
       ...pendientes.map((c) => ({ fecha: c.fecha_solicitud_compra, texto: 'compró su carta natal', nombre: c.nombre_reporte })),
       ...aprobadas.flatMap((c) => [
-        { fecha: c.fecha_envio, texto: 'lectura aprobada', nombre: c.nombre_reporte },
-        c.fecha_correo_entrega && { fecha: c.fecha_correo_entrega, texto: 'recibió su PDF por correo', nombre: c.nombre_reporte, tono: 'verde' },
+        c.entregada_a_mano
+          ? { fecha: c.fecha_envio, texto: 'recibió su lectura (entrega a mano)', nombre: c.nombre_reporte, tono: 'verde' }
+          : { fecha: c.fecha_envio, texto: 'lectura aprobada', nombre: c.nombre_reporte },
+        c.fecha_correo_entrega && { fecha: c.fecha_correo_entrega, texto: 'recibió su lectura en PDF por correo', nombre: c.nombre_reporte, tono: 'verde' },
         c.fecha_reembolso && { fecha: c.fecha_reembolso, texto: 'reembolso registrado', nombre: c.nombre_reporte, tono: 'rojo' },
       ]),
       ...pedidos.flatMap((p) => [
         { fecha: p.fecha_solicitud_compra, texto: `pidió ${p.producto_nombre}`, nombre: p.nombre },
         p.fecha_confirmacion_pago && { fecha: p.fecha_confirmacion_pago, texto: `pago confirmado · ${p.producto_nombre}`, nombre: p.nombre },
-        p.fecha_envio && { fecha: p.fecha_envio, texto: `recibió ${p.producto_nombre}`, nombre: p.nombre, tono: 'verde' },
-        p.fecha_reembolso && { fecha: p.fecha_reembolso, texto: `reembolso · ${p.producto_nombre}`, nombre: p.nombre, tono: 'rojo' },
+        p.fecha_envio && { fecha: p.fecha_envio, texto: `recibió su reporte ${p.producto_nombre}`, nombre: p.nombre, tono: 'verde' },
+        p.fecha_reembolso && { fecha: p.fecha_reembolso, texto: `reembolso registrado · ${p.producto_nombre}`, nombre: p.nombre, tono: 'rojo' },
       ]),
     ].filter((e) => e && e.fecha).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 10)
 
@@ -110,35 +112,35 @@ function Resumen({ datos, ahora, cargando, irA, abrirCarta, abrirPedido }) {
         <p className="text-sm text-tinta-tenue">{fechaLarga()}</p>
         <h2 className="mt-1 font-display text-3xl text-tinta">
           {saludo()}. {cargando ? '' : resumen.cola.length === 0
-            ? 'No hay nada pendiente.'
-            : `Hay ${resumen.cola.length} ${resumen.cola.length === 1 ? 'tarea' : 'tareas'} en la cola${demoradas ? `, ${demoradas} con más de un día` : ''}.`}
+            ? 'Todo está al día.'
+            : `Tienes ${resumen.cola.length} ${resumen.cola.length === 1 ? 'pendiente' : 'pendientes'}${demoradas ? `, ${demoradas} con más de un día de espera` : ''}.`}
         </h2>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Indicador etiqueta="Por revisar" valor={pendientes.length} tono="oro" cargando={cargando}
-          detalle="Pagadas, esperan tu aprobación" onClick={() => irA('pendientes')} />
-        <Indicador etiqueta="PDF por enviar" valor={resumen.sinPdf.length} tono="azul" cargando={cargando}
-          detalle="Aprobadas sin correo de entrega" onClick={() => irA('aprobadas')} />
-        <Indicador etiqueta="Esperando pago" valor={esperando.length + resumen.pedidosPago.length} tono="ambar" cargando={cargando}
-          detalle="Por cruzar con Hotmart" onClick={() => irA(esperando.length ? 'esperando-pago' : 'pedidos')} />
-        <Indicador etiqueta="Otros reportes" valor={resumen.pedidosEnvio.length} tono="verde" cargando={cargando}
-          detalle="Pagados, por preparar y enviar" onClick={() => irA('pedidos')} />
+          detalle="Pagadas, esperan tu revisión" onClick={() => irA('pendientes')} />
+        <Indicador etiqueta="Listas para enviar" valor={resumen.sinPdf.length} tono="azul" cargando={cargando}
+          detalle="Aprobadas, falta enviar el PDF" onClick={() => irA('aprobadas')} />
+        <Indicador etiqueta="Pagos por confirmar" valor={esperando.length} tono="ambar" cargando={cargando}
+          detalle="Cartas natales: revisa la venta en Hotmart" onClick={() => irA('esperando-pago')} />
+        <Indicador etiqueta="Otros reportes" valor={resumen.pedidosPago.length + resumen.pedidosEnvio.length} tono="verde" cargando={cargando}
+          detalle="Pagos por confirmar o reportes por preparar" onClick={() => irA('pedidos')} />
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <Tarjeta>
           <div className="flex items-center justify-between border-b border-linea px-5 py-4">
             <div>
-              <h3 className="font-display text-xl text-tinta">Cola de trabajo</h3>
-              <p className="text-xs text-tinta-tenue">De la más antigua a la más reciente</p>
+              <h3 className="font-display text-xl text-tinta">Pendientes</h3>
+              <p className="text-xs text-tinta-tenue">Primero lo que lleva más tiempo esperando</p>
             </div>
             {demoradas > 0 && <Insignia tono="ambar" punto>{demoradas} con más de 24 h</Insignia>}
           </div>
           {cargando ? (
             <div className="space-y-3 p-5">{[0, 1, 2].map((i) => <Esqueleto key={i} className="h-12" />)}</div>
           ) : resumen.cola.length === 0 ? (
-            <Vacio titulo="Todo al día" texto="Cuando entre una compra o haya algo por enviar, aparecerá aquí." />
+            <Vacio titulo="Todo al día" texto="Cuando entre un pedido o haya algo por enviar, aparecerá aquí." />
           ) : (
             <ul className="divide-y divide-linea">
               {resumen.cola.slice(0, 8).map((t) => {
@@ -167,23 +169,23 @@ function Resumen({ datos, ahora, cargando, irA, abrirCarta, abrirPedido }) {
 
         <div className="space-y-6">
           <Tarjeta className="p-5">
-            <h3 className="font-display text-xl text-tinta">Recorrido de las cartas natales</h3>
-            <p className="mb-5 text-xs text-tinta-tenue">Dónde está cada orden ahora</p>
+            <h3 className="font-display text-xl text-tinta">Cartas natales por etapa</h3>
+            <p className="mb-5 text-xs text-tinta-tenue">Cuántas hay en cada paso ahora</p>
             {cargando ? <Esqueleto className="h-20" /> : (
               <Recorrido etapas={[
-                { etiqueta: 'Esperando pago', valor: esperando.length, color: 'bg-ambar/70' },
+                { etiqueta: 'Pago por confirmar', valor: esperando.length, color: 'bg-ambar/70' },
                 { etiqueta: 'Por revisar', valor: pendientes.length, color: 'bg-oro' },
-                { etiqueta: 'PDF por enviar', valor: resumen.sinPdf.length, color: 'bg-azul' },
+                { etiqueta: 'Listas para enviar', valor: resumen.sinPdf.length, color: 'bg-azul' },
                 { etiqueta: 'Entregadas', valor: resumen.conPdf.length, color: 'bg-salvia' },
               ]} />
             )}
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-linea pt-4 text-sm">
               <div>
-                <div className="text-xs text-tinta-tenue">Entregas en 30 días</div>
+                <div className="text-xs text-tinta-tenue">Entregadas en 30 días</div>
                 <div className="font-display text-2xl lining-nums">{resumen.entregadasMes}</div>
               </div>
               <div>
-                <div className="text-xs text-tinta-tenue">Reembolsos registrados</div>
+                <div className="text-xs text-tinta-tenue">Reembolsos</div>
                 <div className="font-display text-2xl lining-nums">{resumen.reembolsos}</div>
               </div>
             </div>
@@ -199,7 +201,7 @@ function Resumen({ datos, ahora, cargando, irA, abrirCarta, abrirPedido }) {
                       {i < resumen.actividad.length - 1 && <span className="absolute left-[3px] top-3 h-full w-px bg-linea" />}
                       <span className={`relative mt-1.5 size-[7px] shrink-0 rounded-full ${e.tono === 'verde' ? 'bg-salvia' : e.tono === 'rojo' ? 'bg-vino' : 'bg-oro-claro'}`} />
                       <div className="min-w-0 text-sm">
-                        <span className="font-medium text-tinta">{e.nombre || 'Alguien'}</span>{' '}
+                        <span className="font-medium text-tinta">{e.nombre || 'Sin nombre'}</span>{' '}
                         <span className="text-tinta-suave">{e.texto}</span>
                         <div className="text-xs text-tinta-tenue" title={fechaHora(e.fecha)}>{haceCuanto(e.fecha)}</div>
                       </div>

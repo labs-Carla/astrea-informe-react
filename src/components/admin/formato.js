@@ -60,11 +60,22 @@ export function coincide(texto, consulta) {
 /** Estado del reporte temático de un pedido (último ProductoGenerado) para mostrar en el panel. */
 export const ESTADOS_REPORTE = {
   null: { etiqueta: 'Por generar', tono: 'neutro' },
-  pendiente: { etiqueta: 'Generación incompleta', tono: 'rojo' },
+  pendiente: { etiqueta: 'No terminó: generar de nuevo', tono: 'rojo' },
   generando: { etiqueta: 'Generando', tono: 'neutro' },
   fallido: { etiqueta: 'Falló: regenerar', tono: 'rojo' },
   generado: { etiqueta: 'Por revisar', tono: 'oro' },
   editado: { etiqueta: 'Por revisar', tono: 'oro' },
-  aprobado: { etiqueta: 'PDF por enviar', tono: 'azul' },
-  enviado: { etiqueta: 'PDF enviado', tono: 'verde' },
+  aprobado: { etiqueta: 'Listo para enviar', tono: 'azul' },
+  enviado: { etiqueta: 'Entregado', tono: 'verde' },
+}
+
+/**
+ * Entrega de una carta natal aprobada: por correo con el PDF (botón «Enviar») o a mano
+ * (las aprobadas antes del panel nuevo se entregaron con el enlace /r/ por correo).
+ */
+export function entrega(carta) {
+  if (carta.reembolsado) return { estado: 'reembolsada', fecha: carta.fecha_reembolso }
+  if (carta.fecha_correo_entrega) return { estado: 'correo', fecha: carta.fecha_correo_entrega }
+  if (carta.entregada_a_mano) return { estado: 'a-mano', fecha: carta.fecha_envio }
+  return { estado: 'por-enviar', fecha: null }
 }
