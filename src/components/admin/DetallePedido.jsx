@@ -70,7 +70,7 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
     if (hayTexto) {
       const ok = await confirmar({
         titulo: '¿Regenerar el reporte?',
-        texto: <p>Se reemplaza el texto actual por uno nuevo (es otra llamada a la IA). Revísalo antes de aprobar.</p>,
+        texto: <p>Se reemplaza el texto actual por uno nuevo (es otra llamada a la IA, con costo). Revísalo antes de aprobar.</p>,
         accion: 'Regenerar',
       })
       if (!ok) return
@@ -81,7 +81,7 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
   async function aprobar() {
     const ok = await confirmar({
       titulo: '¿Aprobar este reporte?',
-      texto: <p>Queda listo para enviar. <b>No se envía ningún correo todavía</b>: eso es el paso «Enviar al cliente».</p>,
+      texto: <p>Queda listo para enviar. <b>Todavía no se envía ningún correo</b>: eso lo hace el botón «Enviar al cliente».</p>,
       accion: 'Aprobar reporte',
     })
     if (ok) await accion('aprobar', {})
@@ -89,10 +89,10 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
 
   async function enviar() {
     const ok = await confirmar({
-      titulo: enviado ? '¿Reenviar el reporte?' : '¿Enviar el reporte al cliente?',
+      titulo: enviado ? '¿Reenviar el PDF?' : '¿Enviar el reporte al cliente?',
       texto: (
-        <p>Se genera el PDF de <b>{pedido.producto_nombre}</b> y se envía adjunto a <b>{pedido.email}</b>.
-          {enviado && ' La persona recibirá un segundo correo.'}</p>
+        <p>Se arma el PDF de <b>{pedido.producto_nombre}</b> con el texto aprobado y se envía adjunto a <b>{pedido.email}</b>.
+          {enviado && ' La persona recibirá un correo nuevo.'}</p>
       ),
       accion: enviado ? 'Reenviar' : 'Enviar ahora',
       variante: 'oro',
@@ -120,7 +120,7 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
     ['Pagado', pedido && pedido.estado !== 'pendiente'],
     ['Generado', hayTexto],
     ['Aprobado', aprobado],
-    ['PDF enviado', enviado],
+    ['Entregado', enviado],
   ]
   const primerPendiente = pasos.findIndex(([, hecho]) => !hecho)
   const insignia = ESTADOS_REPORTE[estado] || ESTADOS_REPORTE.null
@@ -173,7 +173,7 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
               )}
               <div className="flex flex-wrap items-end gap-4">
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-tinta-tenue">Género (concordancia del texto)</span>
+                  <span className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-tinta-tenue">Género (para la concordancia del texto)</span>
                   <select value={genero} onChange={(e) => setGenero(e.target.value)} disabled={aprobado}
                     className="h-9 rounded-lg bg-papel px-3 text-sm ring-1 ring-linea-fuerte outline-none focus:ring-2 focus:ring-oro disabled:opacity-60">
                     <option value="">No especificar</option>
@@ -185,16 +185,16 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
                   onClick={generar}>
                   {enCurso === 'generar' ? 'Generando (30–60 s)…' : hayTexto ? 'Regenerar' : 'Generar reporte'}
                 </Boton>
-                {hayTexto && <Boton icono="externo" onClick={vistaPrevia} cargando={enCurso === 'vista-previa'}>Vista previa del PDF</Boton>}
+                {hayTexto && <Boton icono="externo" onClick={vistaPrevia} cargando={enCurso === 'vista-previa'}>Ver vista previa del PDF</Boton>}
               </div>
 
               {estado === 'fallido' && (
                 <p className="rounded-lg bg-[#fbeeec] px-4 py-3 text-sm text-vino">
-                  La respuesta de la IA no tuvo el formato esperado (por ejemplo, una sección muy corta o muy larga). Regenera el reporte.
+                  La IA respondió con errores (por ejemplo, una sección demasiado corta o larga). Genera el reporte de nuevo.
                 </p>
               )}
               {estado === 'pendiente' && (
-                <p className="rounded-lg bg-[#fbeeec] px-4 py-3 text-sm text-vino">La última generación no terminó (la IA no respondió). Vuelve a generarlo.</p>
+                <p className="rounded-lg bg-[#fbeeec] px-4 py-3 text-sm text-vino">La última generación no terminó porque la IA no respondió. Vuelve a generarlo.</p>
               )}
 
               <div className="rounded-xl bg-papel p-5 ring-1 ring-linea">
@@ -210,7 +210,7 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
                   </div>
                 ) : (
                   <p className="text-sm text-tinta-tenue">
-                    {bloqueado ? 'Sin reporte.' : 'Genera el reporte para revisarlo aquí antes de aprobar. La IA tarda entre 30 y 60 segundos.'}
+                    {bloqueado ? 'Sin reporte.' : 'Genera el reporte para revisarlo aquí antes de aprobarlo. La IA tarda entre 30 y 60 segundos.'}
                   </p>
                 )}
               </div>
@@ -222,9 +222,9 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
           <footer className="flex flex-col gap-3 border-t border-linea bg-papel px-6 py-4 sm:flex-row sm:items-center">
             <div className="flex-1 text-sm text-tinta-suave">
               {!hayTexto && 'Falta generar el reporte.'}
-              {hayTexto && !aprobado && 'Revisa el texto y aprueba.'}
-              {estado === 'aprobado' && 'Aprobado. Falta enviar el PDF por correo.'}
-              {enviado && `PDF enviado el ${fechaHora(reporte.fecha_envio || pedido.fecha_envio)}.`}
+              {hayTexto && !aprobado && 'Revisa el texto y apruébalo.'}
+              {estado === 'aprobado' && 'Aprobado. Falta enviarle el PDF por correo.'}
+              {enviado && `PDF enviado por correo el ${fechaHora(reporte.fecha_envio || pedido.fecha_envio)}.`}
             </div>
             <Boton variante={aprobado ? 'borde' : 'primario'} tamano="lg" icono={aprobado ? 'check' : undefined}
               disabled={aprobado || !hayTexto} cargando={enCurso === 'aprobar'} onClick={aprobar}>
@@ -232,7 +232,7 @@ function DetallePedido({ api, pedidoId, onCerrar, onCambio }) {
             </Boton>
             <Boton variante={enviado ? 'borde' : 'oro'} tamano="lg" icono="enviar" disabled={!aprobado}
               cargando={enCurso === 'enviar'} onClick={enviar}>
-              {enCurso === 'enviar' ? 'Generando PDF y enviando…' : enviado ? 'Reenviar' : 'Enviar al cliente'}
+              {enCurso === 'enviar' ? 'Armando el PDF y enviando…' : enviado ? 'Reenviar PDF' : 'Enviar al cliente'}
             </Boton>
           </footer>
         )}

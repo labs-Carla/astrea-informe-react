@@ -2,34 +2,26 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { crearClienteAdmin } from './api'
 import DetalleCarta from './DetalleCarta'
 import DetallePedido from './DetallePedido'
-import ListaPedidos from './ListaPedidos'
 import Resumen from './Resumen'
-import TablaCartas from './TablaCartas'
+import TablaLecturas from './TablaLecturas'
 import { Boton, Icono } from './ui'
 import { useAviso, useConfirmar } from './contextos'
 import { haceCuanto } from './formato'
+import { unirLecturas } from './lecturas'
 
-/** Secciones del panel. `fuente` es la clave de `datos` que alimenta el contador. */
+/**
+ * Secciones del panel, por etapa: todas las lecturas (carta natal y demás
+ * reportes) van juntas. `etapa` alimenta el contador de la barra lateral.
+ */
 const SECCIONES = [
-  { id: 'resumen', etiqueta: 'Resumen', icono: 'resumen', titulo: 'Resumen', bajada: 'Lo que pide atención hoy' },
-  { id: 'esperando-pago', etiqueta: 'Esperando pago', icono: 'pago', fuente: 'esperando',
-    titulo: 'Esperando pago', bajada: 'Datos cargados en la tienda; falta cruzar la venta en Hotmart' },
-  { id: 'pendientes', etiqueta: 'Por revisar', icono: 'revisar', fuente: 'pendientes',
-    titulo: 'Por revisar', bajada: 'Pagadas: genera, revisa y aprueba cada lectura' },
-  { id: 'aprobadas', etiqueta: 'Aprobadas', icono: 'aprobadas', fuente: 'aprobadas',
-    titulo: 'Aprobadas', bajada: 'Lecturas aprobadas y estado del PDF enviado por correo' },
-  { id: 'pedidos', etiqueta: 'Otros reportes', icono: 'pedidos', fuente: 'pedidos',
-    titulo: 'Otros reportes', bajada: 'Amor, vocación, dinero, revolución solar, compatibilidad…' },
+  { id: 'resumen', etiqueta: 'Resumen', icono: 'resumen', titulo: 'Resumen', bajada: 'Lo que necesita tu atención hoy' },
+  { id: 'pagos', etiqueta: 'Pagos por confirmar', icono: 'pago', etapa: 'pago', tabla: 'pago',
+    titulo: 'Pagos por confirmar', bajada: 'Lecturas con los datos cargados: confírmalas cuando veas la venta en Hotmart' },
+  { id: 'por-preparar', etiqueta: 'Por preparar', icono: 'revisar', etapa: 'preparar', tabla: 'preparar',
+    titulo: 'Por preparar', bajada: 'Lecturas pagadas: genera el texto, revísalo y apruébalo' },
+  { id: 'entregas', etiqueta: 'Entregas', icono: 'aprobadas', etapa: 'lista', tabla: 'entregas',
+    titulo: 'Entregas', bajada: 'Lecturas aprobadas: envía el PDF o consulta cuándo se entregó' },
 ]
-
-/** Cuántos elementos de cada fuente piden acción (para el contador de la barra lateral). */
-function porAtender(datos, fuente) {
-  const lista = datos[fuente]
-  if (!lista) return null
-  if (fuente === 'aprobadas') return lista.filter((c) => !c.fecha_correo_entrega && !c.reembolsado).length
-  if (fuente === 'pedidos') return lista.filter((p) => p.estado === 'pendiente' || p.estado === 'confirmado').length
-  return lista.length
-}
 
 function seccionDesdeHash() {
   const id = window.location.hash.slice(1)
@@ -137,19 +129,19 @@ function Escritorio({ clave, onSalir }) {
         texto: (
           <>
             <p>Confirma solo si ya viste la venta de <b>{carta.nombre_reporte || carta.email}</b> en Hotmart.</p>
-            <p>Búscala por <b>{carta.email}</b> o por el código <b>astrea-orden-{carta.id}</b>. La orden pasa a «Por revisar».</p>
+            <p>Búscala por <b>{carta.email}</b> o por el código <b>astrea-orden-{carta.id}</b>. La lectura pasará a «Por preparar».</p>
           </>
         ),
         accion: 'Confirmar pago',
       })
-      if (ok) await ejecutar(`pago:${carta.id}`, () => api.post(`/admin/confirmar-pago/${carta.id}`), 'Pago confirmado. La orden pasó a Por revisar.')
+      if (ok) await ejecutar(`pago:${carta.id}`, () => api.post(`/admin/confirmar-pago/${carta.id}`), 'Pago confirmado. La lectura pasó a «Por preparar».')
     },
     async reembolsar(carta) {
       const ok = await confirmar({
         titulo: '¿Registrar el reembolso?',
         texto: (
           <>
-            <p>Hazlo solo si ya reembolsaste a <b>{carta.nombre_reporte || carta.email}</b> en Hotmart.</p>
+            <p>Hazlo solo si ya le devolviste el dinero a <b>{carta.nombre_reporte || carta.email}</b> en Hotmart.</p>
             <p>El enlace de la lectura sigue funcionando.</p>
           </>
         ),
@@ -163,16 +155,16 @@ function Escritorio({ clave, onSalir }) {
         'confirmar-pago': {
           titulo: '¿Confirmar el pago?',
           texto: <p>¿<b>{pedido.email}</b> ya pagó <b>{pedido.producto_nombre}</b>? Busca la venta en Hotmart por el correo o por <b>{pedido.referencia_hotmart}</b>.</p>,
-          accion: 'Confirmar pago', exito: 'Pago confirmado.',
+          accion: 'Confirmar pago', exito: 'Pago confirmado. La lectura pasó a «Por preparar».',
         },
         'marcar-enviado': {
-          titulo: '¿Marcar como enviado?',
-          texto: <p>¿Ya enviaste <b>{pedido.producto_nombre}</b> a <b>{pedido.email}</b> por correo?</p>,
-          accion: 'Marcar enviado', exito: 'Pedido marcado como enviado.',
+          titulo: '¿Marcar como entregado?',
+          texto: <p>¿Ya le enviaste <b>{pedido.producto_nombre}</b> a <b>{pedido.email}</b> por correo? Esto solo lo registra; no envía nada.</p>,
+          accion: 'Marcar enviado', exito: 'Pedido marcado como entregado.',
         },
         reembolsar: {
           titulo: '¿Registrar el reembolso?',
-          texto: <p>Registra el reembolso de <b>{pedido.producto_nombre}</b> de <b>{pedido.email}</b> solo si ya se hizo en Hotmart.</p>,
+          texto: <p>Registra el reembolso de <b>{pedido.producto_nombre}</b> de <b>{pedido.email}</b> solo si ya devolviste el dinero en Hotmart.</p>,
           accion: 'Registrar reembolso', variante: 'peligro', exito: 'Reembolso registrado.',
         },
       }[accion]
@@ -183,11 +175,13 @@ function Escritorio({ clave, onSalir }) {
   }
 
   const actual = SECCIONES.find((s) => s.id === seccion)
+  const lecturas = useMemo(() => unirLecturas(datos), [datos])
+  const abrir = useCallback((l) => (l.tipo === 'carta' ? setCartaAbierta(l.id) : setPedidoAbierto(l.id)), [])
 
   const navegacion = (
     <nav className="space-y-0.5" aria-label="Secciones">
       {SECCIONES.map((s) => {
-        const n = s.fuente ? porAtender(datos, s.fuente) : null
+        const n = s.etapa && lecturas ? lecturas.filter((l) => l.etapa === s.etapa).length : null
         const activa = s.id === seccion
         return (
           <button key={s.id} type="button" onClick={() => irA(s.id)} aria-current={activa ? 'page' : undefined}
@@ -211,7 +205,7 @@ function Escritorio({ clave, onSalir }) {
     <div className="flex h-full flex-col bg-noche px-4 py-6">
       <div className="px-3">
         <div className="font-romana text-[13px] tracking-[.5em] text-papel">ASTREA</div>
-        <div className="mt-1 text-[11px] tracking-[.25em] text-oro-claro/80">PANEL EDITORIAL</div>
+        <div className="mt-1 text-[11px] tracking-[.25em] text-oro-claro/80">PANEL DE LECTURAS</div>
       </div>
       <div className="mt-8 flex-1">{navegacion}</div>
       <div className="space-y-3 border-t border-white/10 px-3 pt-4">
@@ -251,7 +245,7 @@ function Escritorio({ clave, onSalir }) {
               <label className="relative hidden md:block">
                 <span className="sr-only">Buscar</span>
                 <Icono nombre="buscar" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-tinta-tenue" />
-                <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar nombre, correo o #"
+                <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre, correo o número"
                   className="h-9 w-72 rounded-lg bg-papel pl-9 pr-3 text-sm ring-1 ring-linea outline-none placeholder:text-tinta-tenue focus:ring-2 focus:ring-oro" />
               </label>
             )}
@@ -261,7 +255,7 @@ function Escritorio({ clave, onSalir }) {
           </div>
           {seccion !== 'resumen' && (
             <div className="px-4 pb-3 md:hidden">
-              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar nombre, correo o #"
+              <input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Buscar por nombre, correo o número"
                 className="h-9 w-full rounded-lg bg-papel px-3 text-sm ring-1 ring-linea outline-none focus:ring-2 focus:ring-oro" />
             </div>
           )}
@@ -271,25 +265,16 @@ function Escritorio({ clave, onSalir }) {
           {Object.keys(errores).length > 0 && (
             <div className="mb-6 flex items-start gap-2 rounded-lg bg-[#fbeeec] px-4 py-3 text-sm text-vino ring-1 ring-vino/20">
               <Icono nombre="alerta" className="mt-0.5 shrink-0" />
-              <span>No se pudo cargar todo: {Object.values(errores)[0]} Los datos visibles pueden estar incompletos.</span>
+              <span>No se pudo cargar todo: {Object.values(errores)[0]} Lo que ves puede estar incompleto.</span>
             </div>
           )}
 
           {seccion === 'resumen' && (
-            <Resumen datos={datos} ahora={actualizado} cargando={cargando && !actualizado} irA={irA}
-              abrirCarta={setCartaAbierta} abrirPedido={setPedidoAbierto} />
+            <Resumen lecturas={lecturas} ahora={actualizado} cargando={cargando && !actualizado} irA={irA} abrir={abrir} />
           )}
-          {['esperando-pago', 'pendientes', 'aprobadas'].includes(seccion) && (
-            <TablaCartas
-              tipo={seccion}
-              cartas={datos[actual.fuente]}
-              busqueda={busqueda}
-              acciones={acciones}
-              abrirCarta={setCartaAbierta}
-            />
-          )}
-          {seccion === 'pedidos' && (
-            <ListaPedidos pedidos={datos.pedidos} busqueda={busqueda} acciones={acciones} abrirPedido={setPedidoAbierto} />
+          {actual.tabla && (
+            <TablaLecturas key={actual.tabla} seccion={actual.tabla} lecturas={lecturas} busqueda={busqueda}
+              acciones={acciones} abrir={abrir} />
           )}
         </main>
       </div>

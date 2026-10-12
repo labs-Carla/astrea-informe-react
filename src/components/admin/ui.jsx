@@ -68,7 +68,7 @@ export function Boton({ variante = 'borde', tamano = 'md', icono, cargando, chil
       type="button"
       {...props}
       disabled={props.disabled || cargando}
-      className={`inline-flex items-center justify-center rounded-lg font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oro disabled:cursor-not-allowed disabled:opacity-50 ${tamanos[tamano]} ${VARIANTES[variante]} ${className}`}
+      className={`inline-flex items-center justify-center whitespace-nowrap rounded-lg font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-oro disabled:cursor-not-allowed disabled:opacity-50 ${tamanos[tamano]} ${VARIANTES[variante]} ${className}`}
     >
       {cargando ? <Giro /> : icono && <Icono nombre={icono} />}
       {children}

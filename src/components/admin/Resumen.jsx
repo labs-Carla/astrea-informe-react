@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { Esqueleto, Icono, Insignia, Tarjeta, Vacio } from './ui'
 import { fechaHora, fechaLarga, haceCuanto, horasDesde, saludo } from './formato'
+import { tarea } from './lecturas'
 
-/** Una orden o pedido que lleva más de esto sin atenderse se marca como demorado. */
+/** Una lectura que lleva más de esto esperando en su etapa se marca como demorada. */
 const HORAS_DEMORA = 24
 
 function Indicador({ etiqueta, valor, detalle, tono, onClick, cargando }) {
@@ -44,148 +45,133 @@ function Recorrido({ etapas }) {
   )
 }
 
-/** Qué toca hacer con un pedido pagado: los temáticos siguen el recorrido generar → revisar → enviar. */
-function tareaPedido(p) {
-  if (!p.automatico) return 'Preparar y enviar'
-  if (['generado', 'editado'].includes(p.reporte_estado)) return 'Revisar y aprobar'
-  if (p.reporte_estado === 'aprobado') return 'Enviar PDF'
-  return 'Generar reporte'
+const TONO_TAREA = {
+  'Confirmar pago': 'ambar', 'Revisar y aprobar': 'oro', 'Generar reporte': 'oro', 'Enviar PDF': 'azul', 'Preparar a mano': 'neutro',
+}
+
+/** Eventos de la actividad reciente, reconstruidos con las fechas que ya traen las lecturas. */
+function eventos(l) {
+  const o = l.original
+  const de = (fecha, texto, tono) => fecha && { fecha, texto, tono, nombre: l.nombre }
+  if (l.tipo === 'carta') {
+    return [
+      de(o.fecha_solicitud_compra, `pidió «${l.producto}»${l.etapa === 'pago' ? ' (pago por confirmar)' : ''}`),
+      o.entregada_a_mano
+        ? de(o.fecha_envio, `recibió «${l.producto}» (entrega a mano)`, 'verde')
+        : de(o.fecha_envio, `«${l.producto}» aprobada`),
+      de(o.fecha_correo_entrega, `recibió «${l.producto}» en PDF por correo`, 'verde'),
+      de(o.fecha_reembolso, `reembolso registrado de «${l.producto}»`, 'rojo'),
+    ]
+  }
+  return [
+    de(o.fecha_solicitud_compra, `pidió «${l.producto}»${l.etapa === 'pago' ? ' (pago por confirmar)' : ''}`),
+    de(o.fecha_confirmacion_pago, `pago confirmado de «${l.producto}»`),
+    de(o.fecha_envio, `recibió «${l.producto}»${l.entrega?.estado === 'correo' ? ' en PDF por correo' : ''}`, 'verde'),
+    de(o.fecha_reembolso, `reembolso registrado de «${l.producto}»`, 'rojo'),
+  ]
 }
 
 /**
- * Página de inicio: indicadores de lo que pide acción, la cola de trabajo
- * ordenada por antigüedad, el recorrido de las lecturas y la actividad
- * reciente (reconstruida con las fechas que ya devuelven las listas).
+ * Página de inicio: indicadores por etapa, los pendientes ordenados por
+ * antigüedad, cuántas lecturas hay en cada etapa y la actividad reciente.
+ * Todas las lecturas cuentan igual: carta natal y demás reportes.
  */
-function Resumen({ datos, ahora, cargando, irA, abrirCarta, abrirPedido }) {
-  const { esperando = [], pendientes = [], aprobadas = [], pedidos = [] } = datos
-
+function Resumen({ lecturas, ahora, cargando, irA, abrir }) {
   const resumen = useMemo(() => {
-    const sinPdf = aprobadas.filter((c) => !c.fecha_correo_entrega && !c.reembolsado)
-    const conPdf = aprobadas.filter((c) => c.fecha_correo_entrega && !c.reembolsado)
-    const pedidosPago = pedidos.filter((p) => p.estado === 'pendiente')
-    const pedidosEnvio = pedidos.filter((p) => p.estado === 'confirmado')
+    const todas = lecturas || []
+    const en = (etapa) => todas.filter((l) => l.etapa === etapa)
     const hace30 = (ahora || 0) - 30 * 86400000
-    const entregadasMes = conPdf.filter((c) => new Date(c.fecha_correo_entrega).getTime() > hace30).length
-      + pedidos.filter((p) => p.estado === 'enviado' && new Date(p.fecha_envio).getTime() > hace30).length
-    const reembolsos = aprobadas.filter((c) => c.reembolsado).length + pedidos.filter((p) => p.estado === 'reembolsado').length
+    const pendientes = todas
+      .filter((l) => ['pago', 'preparar', 'lista'].includes(l.etapa))
+      .map((l) => ({ ...l, tarea: tarea(l) }))
+      .sort((a, b) => new Date(a.desde || 0) - new Date(b.desde || 0))
+    return {
+      pago: en('pago'), preparar: en('preparar'), lista: en('lista'), entregada: en('entregada'),
+      reembolsos: en('reembolsada').length,
+      entregadasMes: en('entregada').filter((l) => new Date(l.desde || 0).getTime() > hace30).length,
+      pendientes,
+      actividad: todas.flatMap(eventos).filter(Boolean).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 10),
+    }
+  }, [lecturas, ahora])
 
-    const cola = [
-      ...pendientes.map((c) => ({ clave: `r${c.id}`, tipo: 'Revisar y aprobar', nombre: c.nombre_reporte, email: c.email,
-        desde: c.fecha_solicitud_compra || c.fecha_generacion, abrir: () => abrirCarta(c.id), producto: 'Carta natal' })),
-      ...sinPdf.map((c) => ({ clave: `e${c.id}`, tipo: 'Enviar PDF', nombre: c.nombre_reporte, email: c.email,
-        desde: c.fecha_envio, abrir: () => abrirCarta(c.id), producto: 'Carta natal' })),
-      ...esperando.map((c) => ({ clave: `p${c.id}`, tipo: 'Confirmar pago', nombre: c.nombre_reporte, email: c.email,
-        desde: c.fecha_solicitud_compra, abrir: () => irA('esperando-pago'), producto: 'Carta natal' })),
-      ...pedidosEnvio.map((p) => ({ clave: `pe${p.id}`, tipo: tareaPedido(p), nombre: p.nombre, email: p.email,
-        desde: p.fecha_confirmacion_pago, abrir: p.automatico ? () => abrirPedido(p.id) : () => irA('pedidos'), producto: p.producto_nombre })),
-      ...pedidosPago.map((p) => ({ clave: `pp${p.id}`, tipo: 'Confirmar pago', nombre: p.nombre, email: p.email,
-        desde: p.fecha_solicitud_compra, abrir: () => irA('pedidos'), producto: p.producto_nombre })),
-    ].sort((a, b) => new Date(a.desde || 0) - new Date(b.desde || 0))
-
-    const actividad = [
-      ...esperando.map((c) => ({ fecha: c.fecha_solicitud_compra, texto: 'cargó sus datos y fue a pagar', nombre: c.nombre_reporte })),
-      ...pendientes.map((c) => ({ fecha: c.fecha_solicitud_compra, texto: 'compró su carta natal', nombre: c.nombre_reporte })),
-      ...aprobadas.flatMap((c) => [
-        { fecha: c.fecha_envio, texto: 'lectura aprobada', nombre: c.nombre_reporte },
-        c.fecha_correo_entrega && { fecha: c.fecha_correo_entrega, texto: 'recibió su PDF por correo', nombre: c.nombre_reporte, tono: 'verde' },
-        c.fecha_reembolso && { fecha: c.fecha_reembolso, texto: 'reembolso registrado', nombre: c.nombre_reporte, tono: 'rojo' },
-      ]),
-      ...pedidos.flatMap((p) => [
-        { fecha: p.fecha_solicitud_compra, texto: `pidió ${p.producto_nombre}`, nombre: p.nombre },
-        p.fecha_confirmacion_pago && { fecha: p.fecha_confirmacion_pago, texto: `pago confirmado · ${p.producto_nombre}`, nombre: p.nombre },
-        p.fecha_envio && { fecha: p.fecha_envio, texto: `recibió ${p.producto_nombre}`, nombre: p.nombre, tono: 'verde' },
-        p.fecha_reembolso && { fecha: p.fecha_reembolso, texto: `reembolso · ${p.producto_nombre}`, nombre: p.nombre, tono: 'rojo' },
-      ]),
-    ].filter((e) => e && e.fecha).sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 10)
-
-    return { sinPdf, conPdf, pedidosPago, pedidosEnvio, entregadasMes, reembolsos, cola, actividad }
-  }, [esperando, pendientes, aprobadas, pedidos, abrirCarta, abrirPedido, irA, ahora])
-
-  const demoradas = resumen.cola.filter((t) => horasDesde(t.desde) > HORAS_DEMORA).length
+  const irDeTarea = (l) => (l.etapa === 'pago' ? irA('pagos') : l.automatica ? abrir(l) : irA('por-preparar'))
+  const demoradas = resumen.pendientes.filter((t) => horasDesde(t.desde) > HORAS_DEMORA).length
+  const n = resumen.pendientes.length
 
   return (
     <div className="space-y-8">
       <div>
         <p className="text-sm text-tinta-tenue">{fechaLarga()}</p>
         <h2 className="mt-1 font-display text-3xl text-tinta">
-          {saludo()}. {cargando ? '' : resumen.cola.length === 0
-            ? 'No hay nada pendiente.'
-            : `Hay ${resumen.cola.length} ${resumen.cola.length === 1 ? 'tarea' : 'tareas'} en la cola${demoradas ? `, ${demoradas} con más de un día` : ''}.`}
+          {saludo()}. {cargando ? '' : n === 0
+            ? 'Todo está al día.'
+            : `Tienes ${n} ${n === 1 ? 'lectura pendiente' : 'lecturas pendientes'}${demoradas ? `, ${demoradas} con más de un día de espera` : ''}.`}
         </h2>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <Indicador etiqueta="Por revisar" valor={pendientes.length} tono="oro" cargando={cargando}
-          detalle="Pagadas, esperan tu aprobación" onClick={() => irA('pendientes')} />
-        <Indicador etiqueta="PDF por enviar" valor={resumen.sinPdf.length} tono="azul" cargando={cargando}
-          detalle="Aprobadas sin correo de entrega" onClick={() => irA('aprobadas')} />
-        <Indicador etiqueta="Esperando pago" valor={esperando.length + resumen.pedidosPago.length} tono="ambar" cargando={cargando}
-          detalle="Por cruzar con Hotmart" onClick={() => irA(esperando.length ? 'esperando-pago' : 'pedidos')} />
-        <Indicador etiqueta="Otros reportes" valor={resumen.pedidosEnvio.length} tono="verde" cargando={cargando}
-          detalle="Pagados, por preparar y enviar" onClick={() => irA('pedidos')} />
+        <Indicador etiqueta="Pagos por confirmar" valor={resumen.pago.length} tono="ambar" cargando={cargando}
+          detalle="Revisa la venta en Hotmart" onClick={() => irA('pagos')} />
+        <Indicador etiqueta="Por preparar" valor={resumen.preparar.length} tono="oro" cargando={cargando}
+          detalle="Pagadas: generar, revisar y aprobar" onClick={() => irA('por-preparar')} />
+        <Indicador etiqueta="Listas para enviar" valor={resumen.lista.length} tono="azul" cargando={cargando}
+          detalle="Aprobadas, falta enviar el PDF" onClick={() => irA('entregas')} />
+        <Indicador etiqueta="Entregadas en 30 días" valor={resumen.entregadasMes} tono="verde" cargando={cargando}
+          detalle="Por correo o a mano" onClick={() => irA('entregas')} />
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <Tarjeta>
           <div className="flex items-center justify-between border-b border-linea px-5 py-4">
             <div>
-              <h3 className="font-display text-xl text-tinta">Cola de trabajo</h3>
-              <p className="text-xs text-tinta-tenue">De la más antigua a la más reciente</p>
+              <h3 className="font-display text-xl text-tinta">Pendientes</h3>
+              <p className="text-xs text-tinta-tenue">Primero lo que lleva más tiempo esperando</p>
             </div>
             {demoradas > 0 && <Insignia tono="ambar" punto>{demoradas} con más de 24 h</Insignia>}
           </div>
           {cargando ? (
             <div className="space-y-3 p-5">{[0, 1, 2].map((i) => <Esqueleto key={i} className="h-12" />)}</div>
-          ) : resumen.cola.length === 0 ? (
-            <Vacio titulo="Todo al día" texto="Cuando entre una compra o haya algo por enviar, aparecerá aquí." />
+          ) : n === 0 ? (
+            <Vacio titulo="Todo al día" texto="Cuando entre un pedido o haya algo por enviar, aparecerá aquí." />
           ) : (
             <ul className="divide-y divide-linea">
-              {resumen.cola.slice(0, 8).map((t) => {
+              {resumen.pendientes.slice(0, 8).map((t) => {
                 const demorada = horasDesde(t.desde) > HORAS_DEMORA
                 return (
                   <li key={t.clave}>
-                    <button type="button" onClick={t.abrir} className="flex w-full items-center gap-3 px-4 py-3.5 sm:gap-4 sm:px-5 text-left hover:bg-marfil">
+                    <button type="button" onClick={() => irDeTarea(t)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-marfil sm:gap-4 sm:px-5">
                       <span className={`size-2 shrink-0 rounded-full ${demorada ? 'bg-ambar' : 'bg-oro-claro'}`} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium text-tinta">{t.nombre || t.email}</div>
                         <div className="truncate text-xs text-tinta-tenue">{t.producto} · {t.email}</div>
                       </div>
-                      <Insignia tono={t.tipo === 'Confirmar pago' ? 'ambar' : t.tipo === 'Enviar PDF' ? 'azul' : ['Preparar y enviar', 'Generar reporte'].includes(t.tipo) ? 'verde' : 'oro'}>{t.tipo}</Insignia>
+                      <Insignia tono={TONO_TAREA[t.tarea] || 'neutro'}>{t.tarea}</Insignia>
                       <span className={`hidden w-24 text-right text-xs sm:block ${demorada ? 'font-medium text-ambar' : 'text-tinta-tenue'}`}>{haceCuanto(t.desde)}</span>
                       <Icono nombre="flecha" className="size-4 text-tinta-tenue" />
                     </button>
                   </li>
                 )
               })}
-              {resumen.cola.length > 8 && (
-                <li className="px-5 py-3 text-xs text-tinta-tenue">y {resumen.cola.length - 8} más en sus secciones.</li>
-              )}
+              {n > 8 && <li className="px-5 py-3 text-xs text-tinta-tenue">y {n - 8} más en sus secciones.</li>}
             </ul>
           )}
         </Tarjeta>
 
         <div className="space-y-6">
           <Tarjeta className="p-5">
-            <h3 className="font-display text-xl text-tinta">Recorrido de las cartas natales</h3>
-            <p className="mb-5 text-xs text-tinta-tenue">Dónde está cada orden ahora</p>
+            <h3 className="font-display text-xl text-tinta">Lecturas por etapa</h3>
+            <p className="mb-5 text-xs text-tinta-tenue">Cuántas hay en cada paso ahora</p>
             {cargando ? <Esqueleto className="h-20" /> : (
               <Recorrido etapas={[
-                { etiqueta: 'Esperando pago', valor: esperando.length, color: 'bg-ambar/70' },
-                { etiqueta: 'Por revisar', valor: pendientes.length, color: 'bg-oro' },
-                { etiqueta: 'PDF por enviar', valor: resumen.sinPdf.length, color: 'bg-azul' },
-                { etiqueta: 'Entregadas', valor: resumen.conPdf.length, color: 'bg-salvia' },
+                { etiqueta: 'Pago por confirmar', valor: resumen.pago.length, color: 'bg-ambar/70' },
+                { etiqueta: 'Por preparar', valor: resumen.preparar.length, color: 'bg-oro' },
+                { etiqueta: 'Listas para enviar', valor: resumen.lista.length, color: 'bg-azul' },
+                { etiqueta: 'Entregadas', valor: resumen.entregada.length, color: 'bg-salvia' },
               ]} />
             )}
-            <div className="mt-5 grid grid-cols-2 gap-3 border-t border-linea pt-4 text-sm">
-              <div>
-                <div className="text-xs text-tinta-tenue">Entregas en 30 días</div>
-                <div className="font-display text-2xl lining-nums">{resumen.entregadasMes}</div>
-              </div>
-              <div>
-                <div className="text-xs text-tinta-tenue">Reembolsos registrados</div>
-                <div className="font-display text-2xl lining-nums">{resumen.reembolsos}</div>
-              </div>
+            <div className="mt-5 border-t border-linea pt-4 text-sm">
+              <div className="text-xs text-tinta-tenue">Reembolsos</div>
+              <div className="font-display text-2xl lining-nums">{resumen.reembolsos}</div>
             </div>
           </Tarjeta>
 
@@ -199,7 +185,7 @@ function Resumen({ datos, ahora, cargando, irA, abrirCarta, abrirPedido }) {
                       {i < resumen.actividad.length - 1 && <span className="absolute left-[3px] top-3 h-full w-px bg-linea" />}
                       <span className={`relative mt-1.5 size-[7px] shrink-0 rounded-full ${e.tono === 'verde' ? 'bg-salvia' : e.tono === 'rojo' ? 'bg-vino' : 'bg-oro-claro'}`} />
                       <div className="min-w-0 text-sm">
-                        <span className="font-medium text-tinta">{e.nombre || 'Alguien'}</span>{' '}
+                        <span className="font-medium text-tinta">{e.nombre || 'Sin nombre'}</span>{' '}
                         <span className="text-tinta-suave">{e.texto}</span>
                         <div className="text-xs text-tinta-tenue" title={fechaHora(e.fecha)}>{haceCuanto(e.fecha)}</div>
                       </div>
