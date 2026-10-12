@@ -61,7 +61,7 @@ function DatosExtra({ extra }) {
   return null
 }
 
-/** Se abre la ficha (carta natal o reporte temático); los reportes a mano no tienen ficha. */
+/** Se abre la ficha (carta natal o reporte); un reporte que el backend no sabe generar no tiene ficha. */
 const abrible = (l) => l.etapa !== 'pago' && l.automatica
 
 function columnas(seccion, acciones, abrir) {
@@ -178,8 +178,7 @@ function TablaLecturas({ seccion, lecturas, busqueda, acciones, abrir }) {
       )}
       {seccion === 'preparar' && (
         <p className="max-w-3xl text-sm leading-relaxed text-tinta-suave">
-          Genera el texto, revísalo y apruébalo. Revolución solar y compatibilidad todavía se preparan a mano: envía el PDF
-          por correo y luego toca «Marcar enviado».
+          Abre cada lectura para generar el texto, revisarlo y aprobarlo. Después la envías desde «Entregas».
         </p>
       )}
 
