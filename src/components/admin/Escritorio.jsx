@@ -2,34 +2,26 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { crearClienteAdmin } from './api'
 import DetalleCarta from './DetalleCarta'
 import DetallePedido from './DetallePedido'
-import ListaPedidos from './ListaPedidos'
 import Resumen from './Resumen'
-import TablaCartas from './TablaCartas'
+import TablaLecturas from './TablaLecturas'
 import { Boton, Icono } from './ui'
 import { useAviso, useConfirmar } from './contextos'
-import { entrega, haceCuanto } from './formato'
+import { haceCuanto } from './formato'
+import { unirLecturas } from './lecturas'
 
-/** Secciones del panel. `fuente` es la clave de `datos` que alimenta el contador. */
+/**
+ * Secciones del panel, por etapa: todas las lecturas (carta natal y demás
+ * reportes) van juntas. `etapa` alimenta el contador de la barra lateral.
+ */
 const SECCIONES = [
   { id: 'resumen', etiqueta: 'Resumen', icono: 'resumen', titulo: 'Resumen', bajada: 'Lo que necesita tu atención hoy' },
-  { id: 'esperando-pago', etiqueta: 'Pagos por confirmar', icono: 'pago', fuente: 'esperando',
-    titulo: 'Pagos por confirmar', bajada: 'Pedidos de carta natal con los datos cargados: confírmalos cuando veas la venta en Hotmart' },
-  { id: 'pendientes', etiqueta: 'Por revisar', icono: 'revisar', fuente: 'pendientes',
-    titulo: 'Por revisar', bajada: 'Cartas natales pagadas: genera el texto, revísalo y apruébalo' },
-  { id: 'aprobadas', etiqueta: 'Entregas', icono: 'aprobadas', fuente: 'aprobadas',
-    titulo: 'Entregas', bajada: 'Cartas natales aprobadas: envía el PDF o consulta cuándo se entregó' },
-  { id: 'pedidos', etiqueta: 'Otros reportes', icono: 'pedidos', fuente: 'pedidos',
-    titulo: 'Otros reportes', bajada: 'Amor, vocación, dinero, patrones, revolución solar y compatibilidad' },
+  { id: 'pagos', etiqueta: 'Pagos por confirmar', icono: 'pago', etapa: 'pago', tabla: 'pago',
+    titulo: 'Pagos por confirmar', bajada: 'Lecturas con los datos cargados: confírmalas cuando veas la venta en Hotmart' },
+  { id: 'por-preparar', etiqueta: 'Por preparar', icono: 'revisar', etapa: 'preparar', tabla: 'preparar',
+    titulo: 'Por preparar', bajada: 'Lecturas pagadas: genera el texto, revísalo y apruébalo' },
+  { id: 'entregas', etiqueta: 'Entregas', icono: 'aprobadas', etapa: 'lista', tabla: 'entregas',
+    titulo: 'Entregas', bajada: 'Lecturas aprobadas: envía el PDF o consulta cuándo se entregó' },
 ]
-
-/** Cuántos elementos de cada fuente piden acción (para el contador de la barra lateral). */
-function porAtender(datos, fuente) {
-  const lista = datos[fuente]
-  if (!lista) return null
-  if (fuente === 'aprobadas') return lista.filter((c) => entrega(c).estado === 'por-enviar').length
-  if (fuente === 'pedidos') return lista.filter((p) => p.estado === 'pendiente' || p.estado === 'confirmado').length
-  return lista.length
-}
 
 function seccionDesdeHash() {
   const id = window.location.hash.slice(1)
@@ -137,12 +129,12 @@ function Escritorio({ clave, onSalir }) {
         texto: (
           <>
             <p>Confirma solo si ya viste la venta de <b>{carta.nombre_reporte || carta.email}</b> en Hotmart.</p>
-            <p>Búscala por <b>{carta.email}</b> o por el código <b>astrea-orden-{carta.id}</b>. El pedido pasará a «Por revisar».</p>
+            <p>Búscala por <b>{carta.email}</b> o por el código <b>astrea-orden-{carta.id}</b>. La lectura pasará a «Por preparar».</p>
           </>
         ),
         accion: 'Confirmar pago',
       })
-      if (ok) await ejecutar(`pago:${carta.id}`, () => api.post(`/admin/confirmar-pago/${carta.id}`), 'Pago confirmado. El pedido pasó a «Por revisar».')
+      if (ok) await ejecutar(`pago:${carta.id}`, () => api.post(`/admin/confirmar-pago/${carta.id}`), 'Pago confirmado. La lectura pasó a «Por preparar».')
     },
     async reembolsar(carta) {
       const ok = await confirmar({
@@ -163,7 +155,7 @@ function Escritorio({ clave, onSalir }) {
         'confirmar-pago': {
           titulo: '¿Confirmar el pago?',
           texto: <p>¿<b>{pedido.email}</b> ya pagó <b>{pedido.producto_nombre}</b>? Busca la venta en Hotmart por el correo o por <b>{pedido.referencia_hotmart}</b>.</p>,
-          accion: 'Confirmar pago', exito: 'Pago confirmado.',
+          accion: 'Confirmar pago', exito: 'Pago confirmado. La lectura pasó a «Por preparar».',
         },
         'marcar-enviado': {
           titulo: '¿Marcar como entregado?',
@@ -183,11 +175,13 @@ function Escritorio({ clave, onSalir }) {
   }
 
   const actual = SECCIONES.find((s) => s.id === seccion)
+  const lecturas = useMemo(() => unirLecturas(datos), [datos])
+  const abrir = useCallback((l) => (l.tipo === 'carta' ? setCartaAbierta(l.id) : setPedidoAbierto(l.id)), [])
 
   const navegacion = (
     <nav className="space-y-0.5" aria-label="Secciones">
       {SECCIONES.map((s) => {
-        const n = s.fuente ? porAtender(datos, s.fuente) : null
+        const n = s.etapa && lecturas ? lecturas.filter((l) => l.etapa === s.etapa).length : null
         const activa = s.id === seccion
         return (
           <button key={s.id} type="button" onClick={() => irA(s.id)} aria-current={activa ? 'page' : undefined}
@@ -276,20 +270,11 @@ function Escritorio({ clave, onSalir }) {
           )}
 
           {seccion === 'resumen' && (
-            <Resumen datos={datos} ahora={actualizado} cargando={cargando && !actualizado} irA={irA}
-              abrirCarta={setCartaAbierta} abrirPedido={setPedidoAbierto} />
+            <Resumen lecturas={lecturas} ahora={actualizado} cargando={cargando && !actualizado} irA={irA} abrir={abrir} />
           )}
-          {['esperando-pago', 'pendientes', 'aprobadas'].includes(seccion) && (
-            <TablaCartas
-              tipo={seccion}
-              cartas={datos[actual.fuente]}
-              busqueda={busqueda}
-              acciones={acciones}
-              abrirCarta={setCartaAbierta}
-            />
-          )}
-          {seccion === 'pedidos' && (
-            <ListaPedidos pedidos={datos.pedidos} busqueda={busqueda} acciones={acciones} abrirPedido={setPedidoAbierto} />
+          {actual.tabla && (
+            <TablaLecturas key={actual.tabla} seccion={actual.tabla} lecturas={lecturas} busqueda={busqueda}
+              acciones={acciones} abrir={abrir} />
           )}
         </main>
       </div>

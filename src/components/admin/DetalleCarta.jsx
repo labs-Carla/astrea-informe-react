@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { URL_LECTURA } from './api'
-import { EstadoPdf } from './TablaCartas'
 import { Boton, BotonCopiar, Esqueleto, Icono, Insignia, Paso } from './ui'
 import { useAviso, useConfirmar } from './contextos'
 import { entrega, fechaHora, lugar } from './formato'
@@ -216,7 +215,11 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
             <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-tinta-suave">
               <span>{lugar(detalle.ciudad, detalle.pais)}</span>
               <TresGrandes calculo={detalle.calculo} />
-              {aprobada && <EstadoPdf carta={detalle} />}
+              {aprobada && (
+                <Insignia tono={{ correo: 'verde', 'a-mano': 'verde', reembolsada: 'rojo' }[estadoEntrega] || 'azul'} punto>
+                  {{ correo: 'PDF enviado por correo', 'a-mano': 'Entregada a mano', reembolsada: 'Reembolsada' }[estadoEntrega] || 'Lista para enviar'}
+                </Insignia>
+              )}
             </div>
           )}
 
