@@ -325,11 +325,19 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
                 </Boton>
               </div>
             )}
-            {acciones && aprobada && !detalle.reembolsado && (
-              <button type="button" onClick={() => acciones.reembolsar({ id: cartaId, nombre_reporte: detalle.nombre_reporte, email: detalle.email }).then(cargar)}
-                className="mt-3 text-xs text-tinta-tenue underline-offset-2 hover:text-vino hover:underline">
-                Registrar reembolso
-              </button>
+            {acciones && !detalle.reembolsado && (
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+                <button type="button" onClick={() => acciones.orderBump({ id: cartaId, nombre_reporte: detalle.nombre_reporte, email: detalle.email })}
+                  className="text-xs text-tinta-tenue underline-offset-2 hover:text-tinta hover:underline">
+                  Registrar order bump de Amor y vínculos
+                </button>
+                {aprobada && (
+                  <button type="button" onClick={() => acciones.reembolsar({ id: cartaId, nombre_reporte: detalle.nombre_reporte, email: detalle.email }).then(cargar)}
+                    className="text-xs text-tinta-tenue underline-offset-2 hover:text-vino hover:underline">
+                    Registrar reembolso
+                  </button>
+                )}
+              </div>
             )}
           </footer>
         )}
