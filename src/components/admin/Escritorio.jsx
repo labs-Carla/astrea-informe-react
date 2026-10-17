@@ -130,11 +130,17 @@ function Escritorio({ clave, onSalir }) {
         texto: (
           <>
             <p>Confirma solo si ya viste la venta de <b>{carta.nombre_reporte || carta.email}</b> en Hotmart.</p>
-            <p>Búscala por <b>{carta.email}</b> o por el código <b>astrea-orden-{carta.id}</b>. La lectura pasará a «Por preparar».</p>
-            <label className="mt-3 flex items-start gap-2 text-sm">
-              <input type="checkbox" className="mt-0.5" onChange={(e) => { opciones.orderBump = e.target.checked }} />
-              <span>La venta incluye el order bump de <b>Amor y vínculos</b>. Se crea también ese pedido, ya pagado.</span>
-            </label>
+            {carta.pack ? (
+              <p>Es un <b>pack</b>: busca la venta de «Carta natal + 2 reportes temáticos» por <b>{carta.email}</b> o por el código <b>astrea-orden-{carta.id}</b>. Pasan a «Por preparar» la carta natal, <b>{carta.pack.join(' y ')}</b>.</p>
+            ) : (
+              <>
+                <p>Búscala por <b>{carta.email}</b> o por el código <b>astrea-orden-{carta.id}</b>. La lectura pasará a «Por preparar».</p>
+                <label className="mt-3 flex items-start gap-2 text-sm">
+                  <input type="checkbox" className="mt-0.5" onChange={(e) => { opciones.orderBump = e.target.checked }} />
+                  <span>La venta incluye el order bump de <b>Amor y vínculos</b>. Se crea también ese pedido, ya pagado.</span>
+                </label>
+              </>
+            )}
           </>
         ),
         accion: 'Confirmar pago',
@@ -143,9 +149,11 @@ function Escritorio({ clave, onSalir }) {
       await ejecutar(`pago:${carta.id}`, async () => {
         await api.post(`/admin/confirmar-pago/${carta.id}`)
         if (opciones.orderBump) await api.post(`/admin/ordenes/${carta.id}/order-bump`)
-      }, opciones.orderBump
-        ? 'Pago confirmado. La carta natal y Amor y vínculos pasaron a «Por preparar».'
-        : 'Pago confirmado. La lectura pasó a «Por preparar».')
+      }, carta.pack
+        ? `Pago del pack confirmado. La carta natal, ${carta.pack.join(' y ')} pasaron a «Por preparar».`
+        : opciones.orderBump
+          ? 'Pago confirmado. La carta natal y Amor y vínculos pasaron a «Por preparar».'
+          : 'Pago confirmado. La lectura pasó a «Por preparar».')
     },
     async orderBump(carta) {
       const ok = await confirmar({
