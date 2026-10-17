@@ -124,17 +124,42 @@ function Escritorio({ clave, onSalir }) {
   const acciones = {
     enCurso,
     async confirmarPago(carta) {
+      const opciones = { orderBump: false }
       const ok = await confirmar({
         titulo: '¿Confirmar el pago?',
         texto: (
           <>
             <p>Confirma solo si ya viste la venta de <b>{carta.nombre_reporte || carta.email}</b> en Hotmart.</p>
             <p>Búscala por <b>{carta.email}</b> o por el código <b>astrea-orden-{carta.id}</b>. La lectura pasará a «Por preparar».</p>
+            <label className="mt-3 flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-0.5" onChange={(e) => { opciones.orderBump = e.target.checked }} />
+              <span>La venta incluye el order bump de <b>Amor y vínculos</b>. Se crea también ese pedido, ya pagado.</span>
+            </label>
           </>
         ),
         accion: 'Confirmar pago',
       })
-      if (ok) await ejecutar(`pago:${carta.id}`, () => api.post(`/admin/confirmar-pago/${carta.id}`), 'Pago confirmado. La lectura pasó a «Por preparar».')
+      if (!ok) return
+      await ejecutar(`pago:${carta.id}`, async () => {
+        await api.post(`/admin/confirmar-pago/${carta.id}`)
+        if (opciones.orderBump) await api.post(`/admin/ordenes/${carta.id}/order-bump`)
+      }, opciones.orderBump
+        ? 'Pago confirmado. La carta natal y Amor y vínculos pasaron a «Por preparar».'
+        : 'Pago confirmado. La lectura pasó a «Por preparar».')
+    },
+    async orderBump(carta) {
+      const ok = await confirmar({
+        titulo: '¿Registrar el order bump?',
+        texto: (
+          <>
+            <p>Hazlo si la venta de <b>{carta.nombre_reporte || carta.email}</b> en Hotmart incluye <b>Amor y vínculos</b>.</p>
+            <p>Se crea ese pedido con los mismos datos natales, ya pagado, en «Por preparar».</p>
+          </>
+        ),
+        accion: 'Registrar order bump',
+      })
+      if (ok) await ejecutar(`bump:${carta.id}`, () => api.post(`/admin/ordenes/${carta.id}/order-bump`),
+        (r) => (r?.status === 'ya_registrado' ? 'Ese order bump ya estaba registrado.' : 'Order bump registrado: Amor y vínculos está en «Por preparar».'))
     },
     async reembolsar(carta) {
       const ok = await confirmar({
