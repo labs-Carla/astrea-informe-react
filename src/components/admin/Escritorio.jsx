@@ -3,6 +3,7 @@ import { crearClienteAdmin } from './api'
 import DetalleCarta from './DetalleCarta'
 import DetallePedido from './DetallePedido'
 import ListaCorreos from './ListaCorreos'
+import Regalos from './Regalos'
 import Resumen from './Resumen'
 import TablaLecturas from './TablaLecturas'
 import { Boton, Icono } from './ui'
@@ -22,6 +23,8 @@ const SECCIONES = [
     titulo: 'Por preparar', bajada: 'Lecturas pagadas: genera el texto, revísalo y apruébalo' },
   { id: 'entregas', etiqueta: 'Entregas', icono: 'aprobadas', etapa: 'lista', tabla: 'entregas',
     titulo: 'Entregas', bajada: 'Lecturas aprobadas: envía el PDF o consulta cuándo se entregó' },
+  { id: 'regalos', etiqueta: 'Regalos', icono: 'regalo',
+    titulo: 'Regalos', bajada: 'Tarjetas de regalo: confirma el pago y le llega la tarjeta a quien la compró' },
   { id: 'lista', etiqueta: 'Lista de correos', icono: 'lista',
     titulo: 'Lista de correos', bajada: 'Quién recibe los correos de Astrea, de dónde llegó y qué recibió' },
 ]
@@ -308,6 +311,7 @@ function Escritorio({ clave, onSalir }) {
             <Resumen lecturas={lecturas} ahora={actualizado} cargando={cargando && !actualizado} irA={irA} abrir={abrir} />
           )}
           {seccion === 'lista' && <ListaCorreos api={api} busqueda={busqueda} recarga={actualizado} />}
+          {seccion === 'regalos' && <Regalos api={api} busqueda={busqueda} recarga={actualizado} />}
           {actual.tabla && (
             <TablaLecturas key={actual.tabla} seccion={actual.tabla} lecturas={lecturas} busqueda={busqueda}
               acciones={acciones} abrir={abrir} />
