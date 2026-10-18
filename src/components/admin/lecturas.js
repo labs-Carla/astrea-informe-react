@@ -24,6 +24,9 @@ export const ETAPAS = {
 }
 
 const CARTA_NATAL = 'Carta natal'
+// Pack de la tienda (carta natal + 2 temáticos): llega como una orden de carta natal con `pack`
+// (los nombres de sus temáticos) mientras espera el pago; se confirma con ella.
+const PACK = 'Pack carta natal + 2'
 
 function desdeCarta(carta, origen) {
   let etapa = origen
@@ -36,7 +39,8 @@ function desdeCarta(carta, origen) {
     clave: `c${carta.id}`,
     tipo: 'carta',
     id: carta.id,
-    producto: CARTA_NATAL,
+    producto: carta.pack ? PACK : CARTA_NATAL,
+    pack: carta.pack || null,
     nombre: carta.nombre_reporte,
     email: carta.email,
     fecha_hora_local: carta.fecha_hora_local,

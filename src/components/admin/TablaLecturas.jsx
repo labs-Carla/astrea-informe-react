@@ -31,6 +31,7 @@ function Lectura({ l }) {
     <div className="min-w-0">
       <div className="font-romana text-[10.5px] tracking-[.14em] text-oro">{l.producto.toUpperCase()}</div>
       <div className="truncate font-medium text-tinta">{l.nombre || '(sin nombre)'}</div>
+      {l.pack && <div className="truncate text-xs text-tinta-suave">+ {l.pack.join(' y ')}</div>}
       <div className="flex items-center gap-1 truncate text-xs text-tinta-tenue">
         <span className="truncate">{l.email}</span>
         {l.email && <BotonCopiar texto={l.email} etiqueta="Copiar correo" />}
