@@ -3,6 +3,7 @@ import { URL_LECTURA } from './api'
 import { Boton, BotonCopiar, Esqueleto, Icono, Insignia, Paso } from './ui'
 import { useAviso, useConfirmar } from './contextos'
 import { entrega, fechaHora, lugar } from './formato'
+import NarracionLectura from './NarracionLectura'
 
 const PLANETAS = [
   ['sol', 'Sol'], ['luna', 'Luna'], ['mercurio', 'Mercurio'], ['venus', 'Venus'], ['marte', 'Marte'],
@@ -254,6 +255,8 @@ function DetalleCarta({ api, cartaId, resumenLista, onCerrar, onCambio, acciones
                   </a>
                 )}
               </div>
+
+              {aprobada && !detalle.reembolsado && <NarracionLectura api={api} cartaId={cartaId} />}
 
               <div className="rounded-xl bg-papel ring-1 ring-linea">
                 <div className="flex gap-1 overflow-x-auto border-b border-linea px-2 pt-2" role="tablist">
