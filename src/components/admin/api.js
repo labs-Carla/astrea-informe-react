@@ -60,5 +60,16 @@ export function crearClienteAdmin(clave) {
       })
       return respuesta.json()
     },
+    async put(ruta, cuerpo = {}) {
+      const respuesta = await pedir(ruta, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cuerpo),
+      })
+      return respuesta.json()
+    },
+    async borrar(ruta) {
+      return (await pedir(ruta, { method: 'DELETE' })).json()
+    },
   }
 }

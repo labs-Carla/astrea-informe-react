@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Boton, Esqueleto, Icono, Insignia, Tarjeta, Vacio } from './ui'
 import { coincide, fechaHora, haceCuanto } from './formato'
+import Campanas from './Campanas'
+
+// Las pruebas de campaña llegan aquí (decisión de Astrea, 2026-10-18).
+const CORREO_PRUEBA = 'guiasastrologicas@gmail.com'
 
 /**
  * Lista de correos (astrea-API: /admin/lista y /admin/lista/procesar).
@@ -16,8 +20,9 @@ const NOMBRE_PASO = {
   post_entrega: 'Post-entrega',
   cumpleanos: 'Cumpleaños',
 }
-const nombrePaso = (c) => NOMBRE_PASO[`${c.secuencia}:${c.paso}`] || NOMBRE_PASO[c.secuencia] || `${c.secuencia} · ${c.paso}`
-const NOMBRE_SECUENCIA = { bienvenida: 'Bienvenida', cumpleanos: 'Cumpleaños', post_entrega: 'Post-entrega' }
+const nombrePaso = (c) => (c.secuencia === 'campana' ? `Campaña #${c.paso}`
+  : NOMBRE_PASO[`${c.secuencia}:${c.paso}`] || NOMBRE_PASO[c.secuencia] || `${c.secuencia} · ${c.paso}`)
+const NOMBRE_SECUENCIA = { bienvenida: 'Bienvenida', cumpleanos: 'Cumpleaños', post_entrega: 'Post-entrega', campana: 'Campañas' }
 
 function Cifra({ etiqueta, valor, detalle, cargando }) {
   return (
@@ -148,6 +153,8 @@ function ListaCorreos({ api, busqueda, recarga }) {
           <div className="mt-2"><CorridaDeHoy api={api} /></div>
         </Tarjeta>
       </div>
+
+      <Campanas api={api} correoPrueba={CORREO_PRUEBA} onEnvio={cargar} />
 
       <Tarjeta>
         <div className="flex flex-wrap items-center gap-2 border-b border-linea px-5 py-3">
