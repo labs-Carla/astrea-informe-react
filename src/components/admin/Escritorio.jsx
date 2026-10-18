@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { crearClienteAdmin } from './api'
 import DetalleCarta from './DetalleCarta'
 import DetallePedido from './DetallePedido'
+import ListaCorreos from './ListaCorreos'
 import Resumen from './Resumen'
 import TablaLecturas from './TablaLecturas'
 import { Boton, Icono } from './ui'
@@ -21,6 +22,8 @@ const SECCIONES = [
     titulo: 'Por preparar', bajada: 'Lecturas pagadas: genera el texto, revísalo y apruébalo' },
   { id: 'entregas', etiqueta: 'Entregas', icono: 'aprobadas', etapa: 'lista', tabla: 'entregas',
     titulo: 'Entregas', bajada: 'Lecturas aprobadas: envía el PDF o consulta cuándo se entregó' },
+  { id: 'lista', etiqueta: 'Lista de correos', icono: 'lista',
+    titulo: 'Lista de correos', bajada: 'Quién recibe los correos de Astrea, de dónde llegó y qué recibió' },
 ]
 
 function seccionDesdeHash() {
@@ -304,6 +307,7 @@ function Escritorio({ clave, onSalir }) {
           {seccion === 'resumen' && (
             <Resumen lecturas={lecturas} ahora={actualizado} cargando={cargando && !actualizado} irA={irA} abrir={abrir} />
           )}
+          {seccion === 'lista' && <ListaCorreos api={api} busqueda={busqueda} recarga={actualizado} />}
           {actual.tabla && (
             <TablaLecturas key={actual.tabla} seccion={actual.tabla} lecturas={lecturas} busqueda={busqueda}
               acciones={acciones} abrir={abrir} />

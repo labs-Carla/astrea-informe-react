@@ -21,6 +21,7 @@ const TRAZOS = {
   menu: 'M4 7h16M4 12h16M4 17h16',
   enviar: 'M4 12 20 4l-6 16-3-7-7-1Z',
   reloj: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-13v4l3 2',
+  lista: 'M3 6h13v10H3V6Zm0 0 6.5 5L16 6M19 9v9H7',
   estrella: 'M12 3l1.6 6.4L20 11l-6.4 1.6L12 19l-1.6-6.4L4 11l6.4-1.6L12 3Z',
 }
 
