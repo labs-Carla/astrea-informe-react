@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { crearClienteAdmin } from './api'
+import Beta from './Beta'
 import DetalleCarta from './DetalleCarta'
 import DetallePedido from './DetallePedido'
 import ListaCorreos from './ListaCorreos'
@@ -25,6 +26,8 @@ const SECCIONES = [
     titulo: 'Entregas', bajada: 'Lecturas aprobadas: envía el PDF o consulta cuándo se entregó' },
   { id: 'regalos', etiqueta: 'Regalos', icono: 'regalo',
     titulo: 'Regalos', bajada: 'Tarjetas de regalo: confirma el pago y le llega la tarjeta a quien la compró' },
+  { id: 'beta', etiqueta: 'Beta', icono: 'estrella',
+    titulo: 'Personas Beta', bajada: 'Quién entra a Astrea con Plus gratis durante la beta para ayudarte a mejorarla' },
   { id: 'lista', etiqueta: 'Lista de correos', icono: 'lista',
     titulo: 'Lista de correos', bajada: 'Quién recibe los correos de Astrea, de dónde llegó y qué recibió' },
 ]
@@ -312,6 +315,7 @@ function Escritorio({ clave, onSalir }) {
           )}
           {seccion === 'lista' && <ListaCorreos api={api} busqueda={busqueda} recarga={actualizado} />}
           {seccion === 'regalos' && <Regalos api={api} busqueda={busqueda} recarga={actualizado} />}
+          {seccion === 'beta' && <Beta api={api} busqueda={busqueda} recarga={actualizado} />}
           {actual.tabla && (
             <TablaLecturas key={actual.tabla} seccion={actual.tabla} lecturas={lecturas} busqueda={busqueda}
               acciones={acciones} abrir={abrir} />
