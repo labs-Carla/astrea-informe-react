@@ -3,6 +3,7 @@ import { crearClienteAdmin } from './api'
 import Beta from './Beta'
 import DetalleCarta from './DetalleCarta'
 import DetallePedido from './DetallePedido'
+import HoroscopoSemanal from './HoroscopoSemanal'
 import ListaCorreos from './ListaCorreos'
 import Regalos from './Regalos'
 import Resumen from './Resumen'
@@ -28,6 +29,8 @@ const SECCIONES = [
     titulo: 'Regalos', bajada: 'Tarjetas de regalo: confirma el pago y le llega la tarjeta a quien la compró' },
   { id: 'beta', etiqueta: 'Beta', icono: 'estrella',
     titulo: 'Personas Beta', bajada: 'Quién entra a Astrea con Plus gratis durante la beta para ayudarte a mejorarla' },
+  { id: 'blog', etiqueta: 'Horóscopo semanal', icono: 'estrella',
+    titulo: 'Horóscopo semanal', bajada: 'El post del blog de cada lunes: revisa el borrador y publícalo en astrea-charts.site/blog' },
   { id: 'lista', etiqueta: 'Lista de correos', icono: 'lista',
     titulo: 'Lista de correos', bajada: 'Quién recibe los correos de Astrea, de dónde llegó y qué recibió' },
 ]
@@ -316,6 +319,7 @@ function Escritorio({ clave, onSalir }) {
           {seccion === 'lista' && <ListaCorreos api={api} busqueda={busqueda} recarga={actualizado} />}
           {seccion === 'regalos' && <Regalos api={api} busqueda={busqueda} recarga={actualizado} />}
           {seccion === 'beta' && <Beta api={api} busqueda={busqueda} recarga={actualizado} />}
+          {seccion === 'blog' && <HoroscopoSemanal api={api} />}
           {actual.tabla && (
             <TablaLecturas key={actual.tabla} seccion={actual.tabla} lecturas={lecturas} busqueda={busqueda}
               acciones={acciones} abrir={abrir} />
