@@ -4,7 +4,7 @@ import { useAviso, useConfirmar } from './contextos'
 import { fechaHora } from './formato'
 
 /**
- * Horóscopo semanal del blog (astrea-API /admin/horoscopo-semanal). Cada sábado
+ * Horóscopo semanal del blog (astrea-API /admin/horoscopo-semanal). Cada domingo
  * se genera solo el borrador del lunes siguiente (OpenAI, a partir de los
  * tránsitos calculados); aquí se revisa, se corrige y se publica en
  * astrea-charts.site/blog. Mientras no se publique, el blog muestra la semana anterior.
@@ -183,7 +183,7 @@ function HoroscopoSemanal({ api }) {
       <div className="flex flex-wrap items-center gap-3 border-b border-linea px-5 py-4">
         <div className="flex-1">
           <h2 className="font-display text-xl text-tinta">Horóscopo semanal</h2>
-          <p className="text-sm text-tinta-tenue">El borrador del lunes se genera solo cada sábado a las 18:00. Revísalo y publícalo aquí.</p>
+          <p className="text-sm text-tinta-tenue">El borrador de la semana se genera solo cada domingo a las 06:00. Revísalo y publícalo aquí el mismo domingo.</p>
         </div>
         {proximo && !tieneProximo && (
           <Boton variante="primario" icono="estrella" cargando={enCurso === `generar:${proximo}`} onClick={() => generar(proximo)}>
