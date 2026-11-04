@@ -6,8 +6,9 @@ import { coincide, fechaHora, haceCuanto } from './formato'
 /**
  * Lecturas de Plus (astrea-API /admin/lecturas-plus, P1b 2c, 2026-11-04).
  *
- * Con Astrea Plus, la lectura natal y los 4 temáticos de la carta principal se generan solos,
- * pasan por el control de calidad y, si lo pasan, se publican SOLO PARA LEER. Aquí:
+ * Con Astrea Plus, la lectura natal de la carta principal se genera sola, pasa por el control
+ * de calidad y, si lo pasa, se publica SOLO PARA LEER (los temáticos van con candado: Plus les
+ * da descuento, no los incluye; decisión de Carla, 2026-11-04). Aquí:
  * - la COLA: las que no pasaron el control dos veces, o en las que marcaste un problema;
  * - la MUESTRA: publicadas que te toca revisar (no todas): por alerta, por poco, de las
  *   primeras de su tipo o al azar;
@@ -329,7 +330,10 @@ function LecturasPlus({ api, busqueda, recarga }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-linea">
-                {Object.entries(metricas.por_lectura).map(([codigo, c]) => (
+                {/* Plus abre hoy solo la natal (los temáticos van con candado): un tipo sin movimiento no se muestra. */}
+                {Object.entries(metricas.por_lectura)
+                  .filter(([codigo, c]) => codigo === 'carta-natal' || Object.values(c).some((n) => n > 0))
+                  .map(([codigo, c]) => (
                   <tr key={codigo}>
                     <td className="py-1.5">{NOMBRES[codigo] || codigo}</td>
                     {['solicitadas', 'generadas', 'fallidas', 'aprobadas_solas', 'al_panel', 'problemas'].map((k) => (
