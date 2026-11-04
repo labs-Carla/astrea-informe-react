@@ -5,6 +5,7 @@ import DetalleCarta from './DetalleCarta'
 import DetallePedido from './DetallePedido'
 import HoroscopoSemanal from './HoroscopoSemanal'
 import ListaCorreos from './ListaCorreos'
+import LecturasPlus from './LecturasPlus'
 import Regalos from './Regalos'
 import Resumen from './Resumen'
 import TablaLecturas from './TablaLecturas'
@@ -25,6 +26,8 @@ const SECCIONES = [
     titulo: 'Por preparar', bajada: 'Lecturas pagadas: genera el texto, revísalo y apruébalo' },
   { id: 'entregas', etiqueta: 'Entregas', icono: 'aprobadas', etapa: 'lista', tabla: 'entregas',
     titulo: 'Entregas', bajada: 'Lecturas aprobadas: envía el PDF o consulta cuándo se entregó' },
+  { id: 'plus', etiqueta: 'Lecturas de Plus', icono: 'revisar',
+    titulo: 'Lecturas de Plus', bajada: 'Se generan y revisan solas: tu cola, la muestra que te toca mirar y las métricas' },
   { id: 'regalos', etiqueta: 'Regalos', icono: 'regalo',
     titulo: 'Regalos', bajada: 'Tarjetas de regalo: confirma el pago y le llega la tarjeta a quien la compró' },
   { id: 'beta', etiqueta: 'Beta', icono: 'estrella',
@@ -187,7 +190,7 @@ function Escritorio({ clave, onSalir }) {
         texto: (
           <>
             <p>Hazlo solo si ya le devolviste el dinero a <b>{carta.nombre_reporte || carta.email}</b> en Hotmart.</p>
-            <p>El enlace de la lectura sigue funcionando.</p>
+            <p>Su enlace a la lectura deja de abrir y ya no la verá en Astrea.</p>
           </>
         ),
         accion: 'Registrar reembolso',
@@ -319,6 +322,7 @@ function Escritorio({ clave, onSalir }) {
           {seccion === 'lista' && <ListaCorreos api={api} busqueda={busqueda} recarga={actualizado} />}
           {seccion === 'regalos' && <Regalos api={api} busqueda={busqueda} recarga={actualizado} />}
           {seccion === 'beta' && <Beta api={api} busqueda={busqueda} recarga={actualizado} />}
+          {seccion === 'plus' && <LecturasPlus api={api} busqueda={busqueda} recarga={actualizado} />}
           {seccion === 'blog' && <HoroscopoSemanal api={api} />}
           {actual.tabla && (
             <TablaLecturas key={actual.tabla} seccion={actual.tabla} lecturas={lecturas} busqueda={busqueda}
