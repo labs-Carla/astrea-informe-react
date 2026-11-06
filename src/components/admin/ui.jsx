@@ -24,6 +24,7 @@ const TRAZOS = {
   lista: 'M3 6h13v10H3V6Zm0 0 6.5 5L16 6M19 9v9H7',
   regalo: 'M4 11h16v9H4v-9Zm-1-4h18v4H3V7Zm9 0v13M12 7c-1.5-3-5-3-5-1s3 1 5 1Zm0 0c1.5-3 5-3 5-1s-3 1-5 1Z',
   estrella: 'M12 3l1.6 6.4L20 11l-6.4 1.6L12 19l-1.6-6.4L4 11l6.4-1.6L12 3Z',
+  grafico: 'M4 20h16M7 16v-5M12 16V6M17 16v-8',
 }
 
 export function Icono({ nombre, className = 'size-4' }) {
