@@ -6,6 +6,7 @@ import DetallePedido from './DetallePedido'
 import HoroscopoSemanal from './HoroscopoSemanal'
 import ListaCorreos from './ListaCorreos'
 import LecturasPlus from './LecturasPlus'
+import Metricas from './Metricas'
 import Regalos from './Regalos'
 import Resumen from './Resumen'
 import TablaLecturas from './TablaLecturas'
@@ -36,6 +37,8 @@ const SECCIONES = [
     titulo: 'Horóscopo semanal', bajada: 'El post del blog de cada lunes: revisa el borrador y publícalo en astrea-charts.site/blog' },
   { id: 'lista', etiqueta: 'Lista de correos', icono: 'lista',
     titulo: 'Lista de correos', bajada: 'Quién recibe los correos de Astrea, de dónde llegó y qué recibió' },
+  { id: 'metricas', etiqueta: 'Métricas', icono: 'grafico',
+    titulo: 'Métricas', bajada: 'De qué canal llega la gente, cuánto se queda y compra, y cuánto cuesta la IA' },
 ]
 
 function seccionDesdeHash() {
@@ -324,6 +327,7 @@ function Escritorio({ clave, onSalir }) {
           {seccion === 'beta' && <Beta api={api} busqueda={busqueda} recarga={actualizado} />}
           {seccion === 'plus' && <LecturasPlus api={api} busqueda={busqueda} recarga={actualizado} />}
           {seccion === 'blog' && <HoroscopoSemanal api={api} />}
+          {seccion === 'metricas' && <Metricas api={api} busqueda={busqueda} recarga={actualizado} />}
           {actual.tabla && (
             <TablaLecturas key={actual.tabla} seccion={actual.tabla} lecturas={lecturas} busqueda={busqueda}
               acciones={acciones} abrir={abrir} />
