@@ -413,16 +413,115 @@ function Funciones({ datos, busqueda }) {
   )
 }
 
+/* ───────────── Correos ───────────── */
+
+const pct = (v) => (v == null ? '—' : `${v.toLocaleString('es')} %`)
+
+function TablaCorreos({ filas, clave, etiqueta, nombre, limites }) {
+  return (
+    <div className="mt-3 overflow-x-auto">
+      <table className="w-full text-xs sm:text-sm">
+        <thead><tr className="text-left text-xs text-tinta-tenue">
+          <th className="py-1 font-medium">{etiqueta}</th><th className="py-1 pl-2 text-right font-medium">Enviados</th>
+          <th className="py-1 pl-2 text-right font-medium">Llegan</th><th className="py-1 pl-2 text-right font-medium">Rebotan</th>
+          <th className="py-1 pl-2 text-right font-medium">Spam</th>
+        </tr></thead>
+        <tbody className="divide-y divide-linea">
+          {filas.map((f) => (
+            <tr key={f[clave]}>
+              <td className="py-1.5" title={f[clave]}>{nombre(f)}</td>
+              <td className="py-1.5 text-right tabular-nums">{numero(f.enviados)}</td>
+              <td className="py-1.5 text-right tabular-nums">{pct(f.entrega_pct)}</td>
+              <td className={`py-1.5 text-right tabular-nums ${f.rebote_pct > limites.rebote_pct ? 'font-medium text-vino' : ''}`}
+                title={`${f.rebotados} rebotados, ${f.rebotes_permanentes} permanentes`}>{pct(f.rebote_pct)}</td>
+              <td className={`py-1.5 text-right tabular-nums ${f.spam_pct > limites.spam_pct ? 'font-medium text-vino' : ''}`}
+                title={`${f.spam} quejas`}>{pct(f.spam_pct)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function Correos({ datos }) {
+  const t = datos.total
+  const alto = (d) => Math.max(d.enviados, d.entregados)
+  const maximo = Math.max(...datos.por_dia.map(alto), 1)
+  return (
+    <div className="space-y-5">
+      {datos.alertas.map((a) => <Aviso key={a}>{a} Revisa qué tipo de correo y qué dominio lo causan.</Aviso>)}
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <Cifra etiqueta="Correos enviados" valor={numero(t.enviados)} />
+        <Cifra etiqueta="Llegaron al buzón" valor={pct(t.entrega_pct)} ayuda={`${t.entregados} entregados`} />
+        <Cifra etiqueta="Rebotaron" valor={pct(t.rebote_pct)}
+          ayuda={`${t.rebotados} rebotados (${t.rebotes_permanentes} permanentes). Límite sano: ${datos.limites.rebote_pct} %`} />
+        <Cifra etiqueta="Marcados como spam" valor={pct(t.spam_pct)}
+          ayuda={`${t.spam} quejas. Límite sano: ${datos.limites.spam_pct} %`} />
+        <Cifra etiqueta="Clics a Astrea" valor={numero(datos.clics.total)}
+          ayuda="Visitas que entraron desde un enlace de un correo (src=correo-… o campana-…)" />
+      </div>
+
+      {t.enviados === 0 ? (
+        <Tarjeta className="p-5">
+          <Vacio titulo="Todavía no llegan avisos de Resend"
+            texto="Se llenan cuando el webhook de Resend esté configurado y salgan correos. Los clics ya se cuentan." />
+        </Tarjeta>
+      ) : (
+        <>
+          <Tarjeta className="p-5">
+            <h2 className="font-display text-xl">Por día</h2>
+            <div className="mt-4 flex h-28 items-end gap-0.5" role="img" aria-label="Correos enviados por día">
+              {datos.por_dia.map((d) => (
+                <div key={d.dia} className="flex-1 rounded-t bg-oro/70 hover:bg-oro"
+                  title={`${d.dia}: ${d.enviados} enviados, ${d.entregados} entregados, ${d.rebotados} rebotados, ${d.spam} spam`}
+                  style={{ height: `${alto(d) ? Math.max((alto(d) / maximo) * 100, 3) : 0}%` }} />
+              ))}
+            </div>
+            <div className="mt-1 flex justify-between text-xs text-tinta-tenue"><span>{datos.desde}</span><span>{datos.hasta}</span></div>
+          </Tarjeta>
+          <div className="space-y-5">
+            <Tarjeta className="p-5">
+              <h2 className="font-display text-xl">Por tipo de correo</h2>
+              <TablaCorreos filas={datos.por_tipo} clave="tipo" etiqueta="Correo" nombre={(f) => f.nombre} limites={datos.limites} />
+            </Tarjeta>
+            <Tarjeta className="p-5">
+              <h2 className="font-display text-xl">Por proveedor de correo</h2>
+              <TablaCorreos filas={datos.por_dominio} clave="dominio" etiqueta="Dominio" nombre={(f) => f.dominio} limites={datos.limites} />
+              <p className="mt-3 text-xs text-tinta-tenue">Solo el dominio de quien recibe, nunca la dirección.</p>
+            </Tarjeta>
+          </div>
+        </>
+      )}
+
+      <Tarjeta className="p-5">
+        <h2 className="font-display text-xl">Desde qué enlace volvieron</h2>
+        {datos.clics.por_enlace.length === 0 ? <p className="mt-3 text-sm text-tinta-tenue">Nadie entró desde un correo en este período.</p> : (
+          <ul className="mt-3 divide-y divide-linea text-sm">
+            {datos.clics.por_enlace.map((c) => (
+              <li key={c.origen} className="flex justify-between gap-3 py-1.5"><span className="break-all font-mono text-xs">{c.origen}</span><span className="tabular-nums">{numero(c.entradas)}</span></li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-3 text-xs text-tinta-tenue">No medimos aperturas: los clics son la señal de interés. Lo que compran después se ve en Canales, en la familia «correo».</p>
+      </Tarjeta>
+    </div>
+  )
+}
+
 /* ───────────── Sección ───────────── */
 
 const VISTAS = [
-  ['semana', 'Semana'], ['canales', 'Canales'], ['cohortes', 'Cohortes'], ['funciones', 'Funciones'], ['costo', 'Costo de IA'],
+  ['semana', 'Semana'], ['canales', 'Canales'], ['cohortes', 'Cohortes'], ['funciones', 'Funciones'], ['correos', 'Correos'],
+  ['costo', 'Costo de IA'],
 ]
 const RUTAS = {
   semana: () => '/admin/metricas/semana',
   canales: (dias) => `/admin/canales?dias=${dias}`,
   cohortes: (_, semanas) => `/admin/metricas/cohortes?semanas=${semanas}`,
   funciones: (dias) => `/admin/metricas/funciones?dias=${dias}`,
+  correos: (dias) => `/admin/correos?dias=${dias}`,
   costo: (dias) => `/admin/costo-ia?dias=${dias}`,
 }
 
@@ -456,7 +555,7 @@ function Metricas({ api, busqueda, recarga }) {
             </button>
           ))}
         </div>
-        {['canales', 'funciones', 'costo'].includes(vista) && (
+        {['canales', 'funciones', 'correos', 'costo'].includes(vista) && (
           <Pestanas etiqueta="Período" actual={dias} onCambio={setDias} opciones={PERIODOS.map((d) => [d, `${d} días`])} />
         )}
         {vista === 'cohortes' && (
@@ -472,6 +571,7 @@ function Metricas({ api, busqueda, recarga }) {
       {actuales && vista === 'canales' && <Canales datos={actuales} busqueda={busqueda} />}
       {actuales && vista === 'cohortes' && <Cohortes datos={actuales} />}
       {actuales && vista === 'funciones' && <Funciones datos={actuales} busqueda={busqueda} />}
+      {actuales && vista === 'correos' && <Correos datos={actuales} />}
       {actuales && vista === 'costo' && <CostoIA datos={actuales} />}
     </div>
   )
