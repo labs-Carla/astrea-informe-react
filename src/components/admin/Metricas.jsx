@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Esqueleto, Icono, Tarjeta, Vacio } from './ui'
+import { Esqueleto, Tarjeta, Vacio } from './ui'
+import { Aviso, Cifra } from './MetricasUi'
+import Velocidad from './Velocidad'
 import { coincide } from './formato'
 
 /**
@@ -7,6 +9,7 @@ import { coincide } from './formato'
  * - Canales (astrea-API /admin/canales): por cada `src`, visitas, cartas en /carta, cuentas nuevas,
  *   pedidos y ventas pagadas. Las ventas tienen canal desde el 06/11/2026.
  * - Costo de IA (/admin/costo-ia): por día, por tarea y por persona en el chat.
+ * - Velocidad (/admin/velocidad, 2026-11-08): cuánto tarda en abrirse la conversación (Velocidad.jsx).
  */
 
 const PERIODOS = [7, 30, 90]
@@ -37,24 +40,6 @@ const TAREAS = {
 const numero = (n) => (n == null ? '—' : n.toLocaleString('es'))
 const usd = (n, max = 2) => (n == null ? '—' : `US$ ${n.toLocaleString('es', { minimumFractionDigits: 2, maximumFractionDigits: max })}`)
 const porcentaje = (parte, total) => (total ? `${Math.round((parte / total) * 100)} %` : '—')
-
-function Cifra({ etiqueta, valor, ayuda }) {
-  return (
-    <div title={ayuda} className="rounded-lg bg-papel px-4 py-3 ring-1 ring-linea">
-      <div className="font-display text-3xl leading-none text-tinta tabular-nums">{valor ?? '—'}</div>
-      <div className="mt-1 text-xs text-tinta-suave">{etiqueta}</div>
-    </div>
-  )
-}
-
-function Aviso({ children }) {
-  return (
-    <div className="flex items-start gap-2 rounded-lg bg-pergamino px-4 py-3 text-sm text-tinta-suave ring-1 ring-linea">
-      <Icono nombre="alerta" className="mt-0.5 size-4 shrink-0" />
-      <span>{children}</span>
-    </div>
-  )
-}
 
 function Pestanas({ opciones, actual, onCambio, etiqueta }) {
   return (
@@ -514,7 +499,7 @@ function Correos({ datos }) {
 
 const VISTAS = [
   ['semana', 'Semana'], ['canales', 'Canales'], ['cohortes', 'Cohortes'], ['funciones', 'Funciones'], ['correos', 'Correos'],
-  ['costo', 'Costo de IA'],
+  ['costo', 'Costo de IA'], ['velocidad', 'Velocidad'],
 ]
 const RUTAS = {
   semana: () => '/admin/metricas/semana',
@@ -523,6 +508,7 @@ const RUTAS = {
   funciones: (dias) => `/admin/metricas/funciones?dias=${dias}`,
   correos: (dias) => `/admin/correos?dias=${dias}`,
   costo: (dias) => `/admin/costo-ia?dias=${dias}`,
+  velocidad: (dias) => `/admin/velocidad?dias=${dias}`,
 }
 
 function Metricas({ api, busqueda, recarga }) {
@@ -555,7 +541,7 @@ function Metricas({ api, busqueda, recarga }) {
             </button>
           ))}
         </div>
-        {['canales', 'funciones', 'correos', 'costo'].includes(vista) && (
+        {['canales', 'funciones', 'correos', 'costo', 'velocidad'].includes(vista) && (
           <Pestanas etiqueta="Período" actual={dias} onCambio={setDias} opciones={PERIODOS.map((d) => [d, `${d} días`])} />
         )}
         {vista === 'cohortes' && (
@@ -573,6 +559,7 @@ function Metricas({ api, busqueda, recarga }) {
       {actuales && vista === 'funciones' && <Funciones datos={actuales} busqueda={busqueda} />}
       {actuales && vista === 'correos' && <Correos datos={actuales} />}
       {actuales && vista === 'costo' && <CostoIA datos={actuales} />}
+      {actuales && vista === 'velocidad' && <Velocidad datos={actuales} />}
     </div>
   )
 }
