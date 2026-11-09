@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { crearClienteAdmin } from './api'
 import Beta from './Beta'
+import CompatibilidadesEscritas from './CompatibilidadesEscritas'
 import DetalleCarta from './DetalleCarta'
 import DetallePedido from './DetallePedido'
 import HoroscopoSemanal from './HoroscopoSemanal'
@@ -29,6 +30,8 @@ const SECCIONES = [
     titulo: 'Entregas', bajada: 'Lecturas aprobadas: envía el PDF o consulta cuándo se entregó' },
   { id: 'plus', etiqueta: 'Lecturas de Plus', icono: 'revisar',
     titulo: 'Lecturas de Plus', bajada: 'Se generan y revisan solas: tu cola, la muestra que te toca mirar y las métricas' },
+  { id: 'compatibilidad', etiqueta: 'Compatibilidad escrita', icono: 'revisar',
+    titulo: 'Compatibilidad escrita', bajada: 'La escribe Astrea con IA para Plus: las que no pasaron la revisión automática esperan aquí' },
   { id: 'regalos', etiqueta: 'Regalos', icono: 'regalo',
     titulo: 'Regalos', bajada: 'Tarjetas de regalo: confirma el pago y le llega la tarjeta a quien la compró' },
   { id: 'beta', etiqueta: 'Beta', icono: 'estrella',
@@ -326,6 +329,7 @@ function Escritorio({ clave, onSalir }) {
           {seccion === 'regalos' && <Regalos api={api} busqueda={busqueda} recarga={actualizado} />}
           {seccion === 'beta' && <Beta api={api} busqueda={busqueda} recarga={actualizado} />}
           {seccion === 'plus' && <LecturasPlus api={api} busqueda={busqueda} recarga={actualizado} />}
+          {seccion === 'compatibilidad' && <CompatibilidadesEscritas api={api} busqueda={busqueda} recarga={actualizado} />}
           {seccion === 'blog' && <HoroscopoSemanal api={api} />}
           {seccion === 'metricas' && <Metricas api={api} busqueda={busqueda} recarga={actualizado} />}
           {actual.tabla && (
